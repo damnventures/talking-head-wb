@@ -206,7 +206,10 @@ export default function Home() {
         talkingIntervalRef.current = setInterval(() => {
             const newMorphTargets = {
                 jawOpen: Math.random() * 0.8 + 0.2, // Strong jaw open
-                mouthSmile: 0.15
+                mouthSmileLeft: 0.1,
+                mouthSmileRight: 0.1,
+                mouthFunnel: Math.random() * 0.3, // Add some mouth movement
+                mouthPucker: Math.random() * 0.2
             };
             setCurrentMorphTargets(newMorphTargets);
             console.log("Setting morph targets:", newMorphTargets);
@@ -377,7 +380,10 @@ export default function Home() {
                             scale={2.0}
                             morphTargets={currentMorphTargets}
                             onError={(error) => console.error('Avatar error:', error)}
-                            onLoad={() => console.log('Avatar loaded successfully')}
+                            onLoad={() => {
+                                console.log('Avatar loaded successfully');
+                                console.log('avatarRef.current:', avatarRef.current);
+                            }}
                         />
                     </div>
                     <div className="avatar-controls">

@@ -234,6 +234,7 @@ function App() {
 
     const stopTalkingAnimation = () => {
         if (talkingIntervalRef.current) {
+            console.log("Clearing interval:", talkingIntervalRef.current);
             clearInterval(talkingIntervalRef.current);
             talkingIntervalRef.current = null;
         }
@@ -399,9 +400,12 @@ function App() {
                             cameraTarget={1.45}
                             cameraInitialDistance={1.4}
                             scale={2.0}
-                            morphTargets={currentMorphTargets}
+                            morphTargets={currentMorphTargets} // Re-added
                             onError={(error) => console.error('Avatar error:', error)}
-                            onLoad={() => console.log('Avatar loaded successfully')}
+                            onLoad={() => {
+                                console.log('Avatar loaded successfully');
+                                console.log('avatarRef.current:', avatarRef.current);
+                            }}
                         />
                 </div>
                 <div className="avatar-controls">
@@ -457,18 +461,16 @@ function App() {
                     </div>
 
                     {/* Capsule ID Input for Argue Mode */}
-                    {currentModel === 'argue' && (
-                        <div className="capsule-input">
-                            <input
-                                type="text"
-                                value={capsuleId}
-                                onChange={(e) => setCapsuleId(e.target.value)}
-                                placeholder="Enter Capsule ID for Craig mode..."
-                                className="capsule-id-input"
-                            />
-                            <small>Capsule ID is required for Craig to access your personal context</small>
-                        </div>
-                    )}
+                    <div className={`capsule-input ${currentModel !== 'argue' ? 'hidden-element' : ''}`}>
+                        <input
+                            type="text"
+                            value={capsuleId}
+                            onChange={(e) => setCapsuleId(e.target.value)}
+                            placeholder="Enter Capsule ID for Craig mode..."
+                            className="capsule-id-input"
+                        />
+                        <small>Capsule ID is required for Craig to access your personal context</small>
+                    </div>
                 </div>
                 <div className="chat-messages" ref={chatBoxRef}>
                     {messages.map((msg, index) => (

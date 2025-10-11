@@ -16,4 +16,4 @@ MonoBehaviour:
   AppId: 68ea95b878accbce7496609b
   EnableLogging: 0
   EnableAnalytics: 1
-  BodyType: 1
+  BodyType: 2
