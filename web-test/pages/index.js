@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Avatar } from '@readyplayerme/visage';
 import Head from 'next/head';
+import Script from 'next/script';
 
 const defaultAvatarUrl = "https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus&textureAtlas=none";
 
@@ -365,7 +366,6 @@ export default function Home() {
                 <title>TalkBitch Chat</title>
                 <meta name="description" content="Chat with your Ready Player Me avatar powered by OpenAI" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <script src="/config.js"></script>
             </Head>
             <div className="container">
                 <div className="avatar-section">
@@ -470,6 +470,7 @@ export default function Home() {
                     </div>
                 </div>
             </div>
+            <Script src="/config.js" strategy="beforeInteractive" />
         </>
     );
 }
