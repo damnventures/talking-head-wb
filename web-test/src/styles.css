@@ -107,6 +107,7 @@ body {
     border-radius: 6px;
     font-size: 14px;
     margin-bottom: 5px;
+    color: #333; /* Ensure text is visible */
 }
 .capsule-id-input:focus {
     outline: none;

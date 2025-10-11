@@ -151,6 +151,7 @@ function App() {
     const [currentModel, setCurrentModel] = useState('chat'); // 'chat' or 'argue'
     const [capsuleId, setCapsuleId] = useState('');
     const chatBoxRef = useRef(null);
+    const avatarRef = useRef(); // Add this line
 
     // Initialize audio context on first user interaction
     const enableAudio = async () => {
@@ -206,15 +207,28 @@ function App() {
 
         setIsTalking(true);
 
+        // Get the mesh from the ref
+        // The path to the mesh might need adjustment based on the Avatar component's internal structure
+        const avatarMesh = avatarRef.current?.children[0]?.children[0]; 
+
+        if (!avatarMesh || !avatarMesh.isMesh || !avatarMesh.morphTargetDictionary || !avatarMesh.morphTargetInfluences) {
+            console.warn("Avatar mesh or morph targets not found for animation.");
+            return;
+        }
+
+        const jawOpenIndex = avatarMesh.morphTargetDictionary.jawOpen;
+        const mouthSmileLeftIndex = avatarMesh.morphTargetDictionary.mouthSmileLeft;
+        const mouthSmileRightIndex = avatarMesh.morphTargetDictionary.mouthSmileRight;
+
+        if (jawOpenIndex === undefined || mouthSmileLeftIndex === undefined || mouthSmileRightIndex === undefined) {
+            console.warn("Required morph target indices not found in the avatar mesh.");
+            return;
+        }
+
         talkingIntervalRef.current = setInterval(() => {
-            setCurrentMorphTargets({
-                viseme_aa: Math.random() * 0.7 + 0.3,
-                viseme_E: Math.random() * 0.6 + 0.2,
-                viseme_I: Math.random() * 0.5 + 0.3,
-                viseme_O: Math.random() * 0.8 + 0.1,
-                viseme_U: Math.random() * 0.4 + 0.2,
-                mouthSmile: 0.15
-            });
+            avatarMesh.morphTargetInfluences[jawOpenIndex] = Math.random() * 0.6 + 0.4;
+            avatarMesh.morphTargetInfluences[mouthSmileLeftIndex] = Math.random() * 0.2;
+            avatarMesh.morphTargetInfluences[mouthSmileRightIndex] = Math.random() * 0.2;
         }, 100); // Update every 100ms for smooth animation
     };
 
@@ -224,7 +238,17 @@ function App() {
             talkingIntervalRef.current = null;
         }
         setIsTalking(false);
-        setCurrentMorphTargets({});
+        // Reset morph targets to 0 when stopping
+        const avatarMesh = avatarRef.current?.children[0]?.children[0]; // This path might need adjustment
+        if (avatarMesh && avatarMesh.isMesh && avatarMesh.morphTargetDictionary && avatarMesh.morphTargetInfluences) {
+            const jawOpenIndex = avatarMesh.morphTargetDictionary.jawOpen;
+            const mouthSmileLeftIndex = avatarMesh.morphTargetDictionary.mouthSmileLeft;
+            const mouthSmileRightIndex = avatarMesh.morphTargetDictionary.mouthSmileRight;
+
+            if (jawOpenIndex !== undefined) avatarMesh.morphTargetInfluences[jawOpenIndex] = 0;
+            if (mouthSmileLeftIndex !== undefined) avatarMesh.morphTargetInfluences[mouthSmileLeftIndex] = 0;
+            if (mouthSmileRightIndex !== undefined) avatarMesh.morphTargetInfluences[mouthSmileRightIndex] = 0;
+        }
     };
 
     // Cleanup interval on unmount
@@ -370,6 +394,7 @@ function App() {
             <div className="avatar-section">
                  <div className="avatar-container">
                         <Avatar
+                            ref={avatarRef} // Pass the ref here
                             modelSrc={avatarUrl}
                             cameraTarget={1.45}
                             cameraInitialDistance={1.4}

@@ -23,6 +23,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer sk_467ce0191eb13f0d807736e149ae75a9f23212d07439ff01'
       },
       body: JSON.stringify(req.body)
     });

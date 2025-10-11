@@ -23,7 +23,8 @@ app.post('/api/argue', (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
+        'Content-Length': Buffer.byteLength(postData),
+        'Authorization': 'Bearer sk_467ce0191eb13f0d807736e149ae75a9f23212d07439ff01'
       }
     };
 

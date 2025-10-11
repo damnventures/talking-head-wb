@@ -1,21 +1,4 @@
 {
   "version": 2,
-  "name": "talkbitch-web",
-  "buildCommand": "npm run vercel-build",
-  "outputDirectory": "dist",
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
-  "functions": {
-    "api/argue.js": {
-      "maxDuration": 30
-    }
-  }
+  "buildCommand": "npm run vercel-build"
 }

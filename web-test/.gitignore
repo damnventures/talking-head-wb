@@ -1,1 +1,29 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+.swc/
+
+# Production
+build/
+out/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
 .vercel
+
+# Editor
+.DS_Store
+*.log
