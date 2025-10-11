@@ -4,11 +4,15 @@ An iOS app that combines Ready Player Me avatars with OpenAI chat capabilities f
 
 ## Features
 
-- Ready Player Me avatar integration
-- OpenAI ChatGPT-powered conversations
-- Avatar animations during dialogue
-- iOS TestFlight ready
-- Clean, simple chat interface
+✅ **Complete Feature Parity with Web Version:**
+- Ready Player Me avatar integration with morph target animations
+- OpenAI GPT-4o powered conversations with streaming support
+- **Pipecat-style TTS with ElevenLabs integration** (high-quality voices)
+- **Dual personality system**: Friendly Chat + Craig (John Oliver style Argue mode)
+- **Capsule-based personal context** for Craig mode via Signal app integration
+- Advanced avatar facial animations using blend shapes/morph targets
+- iOS TestFlight ready with full mobile optimization
+- Clean, intuitive dual-mode chat interface
 
 ## Setup Requirements
 
@@ -35,13 +39,17 @@ API keys are NOT included in this repository for security. You must add your own
 ```
 Assets/
 ├── Scripts/
-│   ├── ConversationManager.cs    # Main chat logic with OpenAI integration
-│   └── AvatarLoader.cs          # Ready Player Me avatar loading
+│   ├── ConversationManager.cs         # Enhanced dual-mode chat with streaming
+│   ├── AvatarLoader.cs               # Ready Player Me avatar with morph targets
+│   ├── PipecatTTS.cs                # ElevenLabs TTS integration (Pipecat-style)
+│   ├── ArgueAPI.cs                  # Signal app Argue endpoint integration
+│   ├── AvatarAnimationController.cs  # Advanced morph target animations
+│   └── TalkBitchConfig.cs           # Centralized configuration management
 ├── Scenes/
-│   └── MainScene.unity          # Main scene with UI and avatar setup
+│   └── MainScene.unity              # Enhanced UI with model switcher
 ├── Animations/
-│   └── AvatarController.controller # Animator for avatar states
-└── Prefabs/                     # (Ready for your avatar prefabs)
+│   └── AvatarController.controller   # Animator for avatar states
+└── Prefabs/                         # (Ready for your avatar prefabs)
 ```
 
 ## Quick Start
@@ -108,8 +116,9 @@ File → Build Settings → Build
 Automatically managed via Package Manager:
 
 - **Ready Player Me Unity SDK**: `https://github.com/readyplayerme/rpm-unity-sdk-core.git`
-- **OpenAI Unity Package**: `https://github.com/srcnalt/OpenAI-Unity.git`
+- **Direct OpenAI API Integration**: HTTP-based calls (no external package dependency)
 - Unity UI Components (built-in)
+- UnityWebRequest for API calls (built-in)
 
 ## Usage
 
@@ -159,11 +168,18 @@ Automatically managed via Package Manager:
 
 ## Next Steps
 
-### Recommended Enhancements
-1. **Voice Integration**: Add Pipecat for speech-to-text/text-to-speech
-2. **More Animations**: Import Ready Player Me animation library
-3. **Character Profiles**: Multiple avatar personalities
-4. **Cloud Save**: Sync conversations across devices
+### ✅ Already Implemented Enhancements
+1. **✅ Voice Integration**: Full Pipecat-style TTS with ElevenLabs API
+2. **✅ Advanced Animations**: Morph target system matching web version
+3. **✅ Character Profiles**: Dual personality system (Friendly + Craig/Argue)
+4. **✅ Cloud Integration**: Signal app Argue endpoint for personal context
+5. **✅ Streaming Responses**: Real-time conversation like web version
+
+### Future Enhancements
+1. **Speech-to-Text**: Voice input for hands-free interaction
+2. **More Personalities**: Expand beyond Friendly Chat and Craig
+3. **Local Avatar Customization**: In-app avatar editor
+4. **Conversation History**: Persistent chat storage
 5. **Social Features**: Share avatars and conversations
 
 ### Integration Points

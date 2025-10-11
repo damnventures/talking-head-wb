@@ -5,7 +5,7 @@
   "main": "config.example.js",
   "scripts": {
     "start": "npm run build && node serve.js",
-    "build": "webpack && cp config.example.js dist/config.js",
+    "build": "webpack && cp config.js dist/config.js",
     "build:vercel": "npm install --legacy-peer-deps && npm run build",
     "dev": "webpack serve",
     "serve": "node serve.js"
@@ -16,8 +16,8 @@
   "type": "commonjs",
   "dependencies": {
     "@amplitude/analytics-browser": "^2.25.4",
-    "@react-three/drei": "^9.108.4",
-    "@react-three/fiber": "^8.16.8",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@react-three/postprocessing": "^2.16.2",
     "@readyplayerme/visage": "^6.16.0",
     "react": "^18.3.1",
@@ -32,9 +32,11 @@
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-react": "^7.27.1",
     "babel-loader": "^10.0.0",
+    "buffer": "^6.0.3",
     "css-loader": "^7.1.2",
     "express": "^5.1.0",
     "html-webpack-plugin": "^5.6.4",
+    "process": "^0.11.10",
     "style-loader": "^4.0.0",
     "webpack": "^5.102.1",
     "webpack-cli": "^6.0.1",

@@ -46,25 +46,42 @@ public class AvatarLoader : MonoBehaviour
         loadedAvatar.transform.localRotation = Quaternion.identity;
         loadedAvatar.transform.localScale = Vector3.one;
 
-        // Get the animator component and connect it to conversation manager
+        // Get the animator and mesh renderer components
         var animator = loadedAvatar.GetComponent<Animator>();
+        var meshRenderer = loadedAvatar.GetComponentInChildren<SkinnedMeshRenderer>();
         var conversationManager = FindObjectOfType<ConversationManager>();
-        if (conversationManager != null && animator != null)
+
+        if (conversationManager != null)
         {
-            // Set the animator controller from our project
-            var animatorController = Resources.Load<RuntimeAnimatorController>("AvatarController");
-            if (animatorController != null)
+            if (animator != null)
             {
-                animator.runtimeAnimatorController = animatorController;
+                // Set the animator controller from our project
+                var animatorController = Resources.Load<RuntimeAnimatorController>("AvatarController");
+                if (animatorController != null)
+                {
+                    animator.runtimeAnimatorController = animatorController;
+                }
+
+                // Connect the animator to conversation manager
+                conversationManager.SetAvatarAnimator(animator);
+                Debug.Log("Avatar animator connected to ConversationManager");
             }
 
-            // Connect the animator to conversation manager
-            conversationManager.avatarAnimator = animator;
-            Debug.Log("Avatar animator connected to ConversationManager");
+            if (meshRenderer != null)
+            {
+                // Connect the mesh renderer for morph target animations
+                conversationManager.SetAvatarMeshRenderer(meshRenderer);
+                Debug.Log("Avatar mesh renderer connected for morph targets");
+            }
         }
         else
         {
-            Debug.LogWarning($"Missing components: ConversationManager={conversationManager != null}, Animator={animator != null}");
+            Debug.LogWarning("ConversationManager not found!");
+        }
+
+        if (animator == null && meshRenderer == null)
+        {
+            Debug.LogWarning("No animator or mesh renderer found on loaded avatar");
         }
 
         Debug.Log("Avatar loaded successfully!");

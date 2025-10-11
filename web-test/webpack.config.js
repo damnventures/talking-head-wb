@@ -14,7 +14,8 @@ module.exports = {
     extensions: ['.js', '.jsx'],
     fallback: {
       "util": require.resolve("util/"),
-      "process": require.resolve("process/browser")
+      "process": require.resolve("process/browser"),
+      "buffer": require.resolve("buffer/")
     },
     alias: {
       "react": path.resolve(__dirname, "./node_modules/react"),
@@ -42,6 +43,13 @@ module.exports = {
     }),
     new webpack.ProvidePlugin({
       process: 'process/browser',
+      Buffer: ['buffer', 'Buffer'],
+    }),
+    new webpack.DefinePlugin({
+      'process.env': JSON.stringify({}),
+      'process.version': JSON.stringify('v16.0.0'),
+      'process.platform': JSON.stringify('browser'),
+      'process.browser': JSON.stringify(true),
     }),
   ],
   devServer: {
