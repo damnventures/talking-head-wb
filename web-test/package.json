@@ -5,7 +5,8 @@
   "main": "config.example.js",
   "scripts": {
     "start": "npm run build && node serve.js",
-    "build": "webpack && cp config.js dist/",
+    "build": "webpack && cp config.example.js dist/config.js",
+    "build:vercel": "npm install && npm run build",
     "dev": "webpack serve",
     "serve": "node serve.js"
   },
