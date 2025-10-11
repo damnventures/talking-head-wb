@@ -1,112 +1,118 @@
-# TalkBitch - Local Web Test
+# TalkBitch Web App - Vercel Deployment
 
-Quick web-based version to test the Ready Player Me + OpenAI integration locally.
+React-based web application with Ready Player Me avatars, OpenAI chat, and Craig Argue integration.
 
-## 🔧 First Time Setup (Required)
+## 🚀 Quick Deploy to Vercel
 
-### 1. Configure API Keys
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+
+### Option 1: Deploy from GitHub
+1. Push this `web-test` folder to a GitHub repository
+2. Connect the repository to Vercel
+3. Deploy will automatically use `web-test` as the root directory
+
+### Option 2: Deploy via Vercel CLI
 ```bash
 cd web-test
-cp config.example.js config.js
-# Edit config.js with your real API keys
+vercel --prod
 ```
 
-**Edit `config.js` with your credentials:**
-- OpenAI API Key
-- Ready Player Me Subdomain
-- Ready Player Me App ID
+## ⚙️ Environment Variables
 
-### 2. Run Server
+Set these in your Vercel dashboard under Settings → Environment Variables:
 
-#### Option A: One-Click Run
 ```bash
-./run.sh
+# Required for production
+VITE_OPENAI_API_KEY=sk-proj-your-openai-key-here
+VITE_ELEVENLABS_API_KEY=sk_your-elevenlabs-key-here
 ```
 
-#### Option B: Manual Python Server
+## 🎯 Features
+
+- ✅ **Avatar System**: Ready Player Me with facial animations
+- ✅ **Dual Chat Modes**: Friendly AI + Craig (argumentative)
+- ✅ **Voice Synthesis**: ElevenLabs TTS integration
+- ✅ **API Proxy**: `/api/argue` endpoint for Craig integration
+- ✅ **CORS Resolved**: Server-side API proxy
+- ✅ **Mobile Responsive**: Touch-optimized interface
+
+## 📁 Project Structure
+
+```
+web-test/
+├── api/argue.js              # Vercel API function for Craig
+├── src/index.jsx            # Main React component
+├── dist/                    # Build output
+├── vercel.json             # Vercel configuration
+├── package.json            # Dependencies and scripts
+└── webpack.config.js       # Build configuration
+```
+
+## 🔑 API Keys Required
+
+1. **OpenAI API Key**: For conversational AI
+   - Get from: https://platform.openai.com/
+   - Set as: `VITE_OPENAI_API_KEY`
+
+2. **ElevenLabs API Key**: For voice synthesis
+   - Get from: https://elevenlabs.io/
+   - Set as: `VITE_ELEVENLABS_API_KEY`
+
+3. **Craig Argue Key**: Already configured (`371266e010bcb7674532903e8678256a7d3292b3731a0dfba4ff6e2b6de5149b`)
+
+## 🎮 Usage
+
+### Friendly Chat Mode
+- Default conversational AI
+- Uses OpenAI GPT-4o
+- Natural, helpful responses
+
+### Craig Argue Mode
+- Toggle to "Argue" mode
+- Enter capsule ID: `68c32cf3735fb4ac0ef3ccbf`
+- Get John Oliver-style argumentative responses
+- Uses personal context from Signal app capsules
+
+## 📦 Local Development
+
 ```bash
-cd web-test
-python3 server.py
+npm install
+npm run build
+npm start
+# Opens http://localhost:3000
 ```
 
-#### Option C: Direct Browser (Limited)
-Simply open `index.html` in your browser (some features may not work due to CORS).
+## 🌐 Production URL
 
-## 🌐 Access
+After deployment, your app will be available at:
+`https://your-project.vercel.app`
 
-Once running, open: **http://localhost:8080**
+## 🛠️ Troubleshooting
 
-## ✨ Features
+### Build Issues
+- Ensure Node.js 18+ is installed
+- Check package.json dependencies
+- Verify API keys are set correctly
 
-- **Ready Player Me Integration**: Load and display 3D avatars
-- **OpenAI Chat**: Real-time conversations with ChatGPT
-- **Responsive Design**: Works on desktop and mobile
-- **Visual Feedback**: Avatar animations during conversations
-- **Real-time Status**: Connection indicators and typing states
+### API Issues
+- `/api/argue` endpoint handles CORS automatically
+- Check Network tab for API call status
+- Verify Craig API key and capsule ID
 
-## 🎮 How to Use
+### Avatar Loading
+- Ready Player Me CDN may have occasional delays
+- Check browser console for WebGL errors
+- Ensure stable internet connection
 
-1. **Load Avatar**:
-   - Use the default avatar URL or paste your own Ready Player Me URL
-   - Click "Load Avatar" to display your 3D avatar
+## 📋 Deployment Checklist
 
-2. **Start Chatting**:
-   - Type messages in the chat input
-   - Press Enter or click Send
-   - Watch your avatar respond with AI-powered conversations
+- ✅ API keys configured in Vercel environment variables
+- ✅ Build completes successfully (`npm run build`)
+- ✅ Static assets serve correctly
+- ✅ `/api/argue` endpoint responds
+- ✅ Avatar loads and animates
+- ✅ Voice synthesis works (requires user interaction)
 
-3. **Get Your Own Avatar**:
-   - Visit https://readyplayer.me/
-   - Create your custom avatar
-   - Copy the avatar URL (.glb link)
-   - Paste it into the avatar URL field
+---
 
-## 🔧 Troubleshooting
-
-### Avatar Not Loading
-- Check that the URL is a valid Ready Player Me avatar URL
-- Ensure it ends with `.glb`
-- Try one of the sample URLs provided
-
-### Chat Not Working
-- Check browser console for errors
-- Verify internet connection
-- OpenAI API rate limits may apply
-
-### Server Won't Start
-- Port 8080 might be in use - check for other local servers
-- Try `python server.py` directly
-- Use a different port by editing `server.py`
-
-## 🔗 Ready Player Me URLs
-
-Sample avatar URLs you can test:
-- `https://models.readyplayer.me/6418c950d06b1fd91c8a8de5.glb`
-- `https://models.readyplayer.me/632d65e99aa4cf6dd5c64e7c.glb`
-
-Create your own at: https://readyplayer.me/
-
-## 📱 Mobile Support
-
-The web app is fully responsive and works on:
-- iPhone/iPad Safari
-- Android Chrome
-- Desktop browsers
-
-## 🔄 Differences from Unity Version
-
-This web version provides:
-- ✅ Instant testing without Unity installation
-- ✅ Cross-platform compatibility
-- ✅ Easy avatar URL testing
-- ❌ Limited 3D interactions (compared to Unity)
-- ❌ No native iOS features
-
-## 🚀 Next Steps
-
-Once you've tested here, the Unity iOS version provides:
-- Native iOS performance
-- Advanced 3D avatar interactions
-- App Store/TestFlight distribution
-- Better offline capabilities
-- Native iOS integrations
+**Note:** This is the web version of the TalkBitch Unity iOS app. The Unity version includes the same features optimized for mobile deployment via TestFlight.

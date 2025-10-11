@@ -245,7 +245,7 @@ function App() {
             throw new Error('Capsule ID is required for Argue mode. Please enter a capsule ID.');
         }
 
-        const response = await fetch('https://craig.shrinked.ai/api/argue', {
+        const response = await fetch('/api/argue', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
