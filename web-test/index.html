@@ -405,17 +405,25 @@
 
                 // Create model viewer for the actual 3D model
                 const modelViewer = document.createElement('model-viewer');
-                modelViewer.src = avatarUrl;
                 modelViewer.alt = 'Ready Player Me Avatar';
                 modelViewer.style.width = '100%';
                 modelViewer.style.height = '100%';
                 modelViewer.setAttribute('camera-controls', '');
-                modelViewer.setAttribute('auto-rotate', '');
+                modelViewer.setAttribute('interaction-prompt', 'none');
                 modelViewer.setAttribute('shadow-intensity', '1');
-                modelViewer.setAttribute('camera-orbit', '0deg 75deg 1.2m');
-                modelViewer.setAttribute('field-of-view', '30deg');
-                modelViewer.setAttribute('camera-target', '0m 1.6m 0m');
+                modelViewer.setAttribute('disable-zoom', ''); // Disable manual zoom
+                modelViewer.setAttribute('autoplay', '');
                 modelViewer.setAttribute('exposure', '1');
+
+                // Camera positioning for close-up head/torso view
+                modelViewer.setAttribute('camera-orbit', '0deg 80deg 0.6m');
+                modelViewer.setAttribute('field-of-view', '35deg');
+                modelViewer.setAttribute('min-camera-orbit', 'auto 70deg 0.4m');
+                modelViewer.setAttribute('max-camera-orbit', 'auto 90deg 1m');
+                modelViewer.setAttribute('camera-target', '0m 1.7m 0m');
+
+                // Set src last to ensure all settings are applied before loading
+                modelViewer.src = avatarUrl;
 
                 // Add loading and error event listeners
                 modelViewer.addEventListener('load', () => {
@@ -678,15 +686,23 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // Simulate avatar talking animation
+        // Play avatar talking animation
         function simulateAvatarTalking() {
-            const avatarContainer = document.getElementById('avatarContainer');
-            avatarContainer.style.transform = 'scale(1.05)';
-            avatarContainer.style.transition = 'transform 0.3s ease';
+            const modelViewer = document.querySelector("model-viewer");
+            if (!modelViewer) return;
 
+            // The names of animations can vary. Common RPM names are tried here.
+            const talkingAnimation = 'Talking_1';
+            const idleAnimation = 'Idle_1';
+
+            modelViewer.animationName = talkingAnimation;
+            
+            // After a delay, return to idle. Adjust time as needed.
             setTimeout(() => {
-                avatarContainer.style.transform = 'scale(1)';
-            }, 2000);
+                if (modelViewer) {
+                    modelViewer.animationName = idleAnimation;
+                }
+            }, 5000); // Assume 5 seconds of talking
         }
 
         // Sample avatar URLs for testing
