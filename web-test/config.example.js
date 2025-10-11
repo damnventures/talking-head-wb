@@ -5,6 +5,9 @@ window.CONFIG = {
     // OpenAI Configuration
     OPENAI_API_KEY: 'sk-proj-YOUR_OPENAI_KEY_HERE',
 
+    // ElevenLabs Configuration (for high-quality TTS via Pipecat)
+    ELEVENLABS_API_KEY: 'YOUR_ELEVENLABS_API_KEY_HERE',
+
     // Ready Player Me Configuration
     RPM_SUBDOMAIN: 'your-subdomain-here',
     RPM_APP_ID: 'your-app-id-here',
