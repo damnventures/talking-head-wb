@@ -39,10 +39,10 @@ class PipecatTTS {
         return [];
     }
 
-    async speak(text) {
+    async speak(text, onAudioStart = () => {}, onAudioEnd = () => {}) {
         if (!this.apiKey || this.apiKey === 'YOUR_ELEVENLABS_API_KEY') {
             console.warn('ElevenLabs API key not configured, falling back to Web Speech API');
-            this.fallbackSpeak(text);
+            this.fallbackSpeak(text, onAudioStart, onAudioEnd);
             return;
         }
 
@@ -96,23 +96,24 @@ class PipecatTTS {
                     const playPromise = audio.play();
 
                     if (playPromise !== undefined) {
+                        onAudioStart(); // Call onAudioStart when audio begins playing
                         await playPromise;
                         console.log('ElevenLabs TTS: Speaking with high-quality voice');
                     }
                 } catch (playError) {
                     console.warn('Audio play failed, trying fallback:', playError);
-                    this.fallbackSpeak(text);
+                    this.fallbackSpeak(text, onAudioStart, onAudioEnd);
                 }
             } else {
                 throw new Error(`ElevenLabs API error: ${response.status} - ${response.statusText}`);
             }
         } catch (error) {
             console.error('ElevenLabs TTS failed:', error);
-            this.fallbackSpeak(text);
+            this.fallbackSpeak(text, onAudioStart, onAudioEnd);
         }
     }
 
-    fallbackSpeak(text) {
+    fallbackSpeak(text, onAudioStart = () => {}, onAudioEnd = () => {}) {
         // Fallback to Web Speech API if ElevenLabs fails
         if ('speechSynthesis' in window) {
             const utterance = new SpeechSynthesisUtterance(text);
@@ -127,6 +128,8 @@ class PipecatTTS {
             ) || voices.find(voice => voice.lang.startsWith('en'));
 
             if (preferredVoice) utterance.voice = preferredVoice;
+            utterance.onstart = onAudioStart;
+            utterance.onend = onAudioEnd;
             speechSynthesis.speak(utterance);
             console.log('Fallback TTS: Using Web Speech API');
         }
@@ -350,21 +353,10 @@ function App() {
             // Common logic for both models - finalize the message
             setMessages(prev => [...prev, { role: 'ai', text: reply }]);
 
-            // Trigger talking animation
-            startTalkingAnimation();
-            console.log('Avatar: Starting talk animation');
-
             // Use Pipecat TTS to speak the response
             if (ttsSystem) {
-                await ttsSystem.speak(reply);
+                await ttsSystem.speak(reply, startTalkingAnimation, stopTalkingAnimation);
             }
-
-            // Animation duration based on text length
-            const animationDuration = Math.max(3000, reply.length * 50);
-            setTimeout(() => {
-                stopTalkingAnimation();
-                console.log('Avatar: Ending talk animation');
-            }, animationDuration);
 
         } catch (error) {
             console.error("Error sending message:", error);
