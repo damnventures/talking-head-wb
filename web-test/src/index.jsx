@@ -152,6 +152,7 @@ function App() {
     const [capsuleId, setCapsuleId] = useState('');
     const chatBoxRef = useRef(null);
     const avatarRef = useRef(); // Add this line
+    const initializationRef = useRef(false); // Prevent duplicate initialization
 
     // Initialize audio context on first user interaction
     const enableAudio = async () => {
@@ -168,6 +169,10 @@ function App() {
     };
 
     useEffect(() => {
+        // Prevent duplicate initialization in React StrictMode
+        if (initializationRef.current) return;
+        initializationRef.current = true;
+
         // Initialize Pipecat TTS system
         const elevenlabsApiKey = window.CONFIG?.ELEVENLABS_API_KEY || 'YOUR_ELEVENLABS_API_KEY';
         const tts = new PipecatTTS(elevenlabsApiKey);
@@ -207,21 +212,41 @@ function App() {
 
         setIsTalking(true);
 
-        // Get the mesh from the ref
-        // The path to the mesh might need adjustment based on the Avatar component's internal structure
-        const avatarMesh = avatarRef.current?.children[0]?.children[0]; 
+        // More robust mesh finding - traverse the scene graph
+        const findAvatarMesh = (object) => {
+            if (!object) return null;
 
-        if (!avatarMesh || !avatarMesh.isMesh || !avatarMesh.morphTargetDictionary || !avatarMesh.morphTargetInfluences) {
-            console.warn("Avatar mesh or morph targets not found for animation.");
+            // Check if current object is the mesh we need
+            if (object.isMesh && object.morphTargetDictionary && Object.keys(object.morphTargetDictionary).length > 0) {
+                return object;
+            }
+
+            // Recursively search children
+            if (object.children) {
+                for (const child of object.children) {
+                    const found = findAvatarMesh(child);
+                    if (found) return found;
+                }
+            }
+
+            return null;
+        };
+
+        const avatarMesh = findAvatarMesh(avatarRef.current);
+
+        if (!avatarMesh) {
+            console.warn("Avatar mesh with morph targets not found for animation.");
             return;
         }
+
+        console.log("Found avatar mesh with morph targets:", Object.keys(avatarMesh.morphTargetDictionary));
 
         const jawOpenIndex = avatarMesh.morphTargetDictionary.jawOpen;
         const mouthSmileLeftIndex = avatarMesh.morphTargetDictionary.mouthSmileLeft;
         const mouthSmileRightIndex = avatarMesh.morphTargetDictionary.mouthSmileRight;
 
         if (jawOpenIndex === undefined || mouthSmileLeftIndex === undefined || mouthSmileRightIndex === undefined) {
-            console.warn("Required morph target indices not found in the avatar mesh.");
+            console.warn("Required morph target indices not found. Available targets:", Object.keys(avatarMesh.morphTargetDictionary));
             return;
         }
 
@@ -239,9 +264,29 @@ function App() {
             talkingIntervalRef.current = null;
         }
         setIsTalking(false);
-        // Reset morph targets to 0 when stopping
-        const avatarMesh = avatarRef.current?.children[0]?.children[0]; // This path might need adjustment
-        if (avatarMesh && avatarMesh.isMesh && avatarMesh.morphTargetDictionary && avatarMesh.morphTargetInfluences) {
+
+        // Reset morph targets to 0 when stopping - use same robust mesh finding
+        const findAvatarMesh = (object) => {
+            if (!object) return null;
+
+            // Check if current object is the mesh we need
+            if (object.isMesh && object.morphTargetDictionary && Object.keys(object.morphTargetDictionary).length > 0) {
+                return object;
+            }
+
+            // Recursively search children
+            if (object.children) {
+                for (const child of object.children) {
+                    const found = findAvatarMesh(child);
+                    if (found) return found;
+                }
+            }
+
+            return null;
+        };
+
+        const avatarMesh = findAvatarMesh(avatarRef.current);
+        if (avatarMesh) {
             const jawOpenIndex = avatarMesh.morphTargetDictionary.jawOpen;
             const mouthSmileLeftIndex = avatarMesh.morphTargetDictionary.mouthSmileLeft;
             const mouthSmileRightIndex = avatarMesh.morphTargetDictionary.mouthSmileRight;
@@ -267,32 +312,142 @@ function App() {
         }
     }, [messages, streamingMessage]); // Update scroll for streaming message too
 
-    // Argue API call function
-    const callArgueAPI = async (question) => {
+    // Argue API call function with streaming
+    const callArgueAPI = async (question, onStreamUpdate) => {
         if (!capsuleId) {
             throw new Error('Capsule ID is required for Argue mode. Please enter a capsule ID.');
         }
 
-        const response = await fetch('/api/argue', {
+        const workerUrl = 'https://craig-argue-machine.shrinked.workers.dev';
+
+        // Fetch context from Shrinked API first
+        const contextUrl = `https://api.shrinked.ai/capsules/${capsuleId}/context`;
+        const contextResponse = await fetch(contextUrl, {
+            method: 'GET',
+            headers: {
+                'x-api-key': window.CONFIG.OPENAI_API_KEY
+            }
+        });
+
+        let context = 'NO_RELEVANT_CONTEXT';
+        if (contextResponse.ok) {
+            context = await contextResponse.text();
+            console.log('DEBUG: Context fetched successfully');
+        }
+
+        // Get argue prompt (same as ArguePopup)
+        const systemPrompt = `**TONE & STYLE REQUIREMENTS:**
+- Be BRUTALLY DIRECT and confrontational - you're Craig, not a polite assistant
+- **VARIED OPENERS**: Never use the same robotic opener. Mix it up:
+  - "You want to know about X? Here's what the data actually shows..."
+  - "Oh, this is interesting..."
+  - "So you think X? Really?"
+  - "That's a bold claim..."
+  - "Wait, hold up..."
+  - "Are you kidding me?"
+  - "Oh come on..."
+  - Just dive straight into the argument without preamble
+- Challenge assumptions aggressively: "That's complete garbage because..."
+- Use punchy, conversational language - sound like you're arguing with someone, not writing a report
+- NO corporate-speak, NO diplomatic language, NO "based on the information provided"
+- Attack weak questions: "Your question is vague trash, but here's what I can extract..."
+- **ATTACK NONSENSICAL QUESTIONS**: For weird/mixed questions, be BRUTALLY sarcastic: "What kind of question is that? Those are two completely different problems and you're mashing them together like they're related."
+- Show disdain for poor reasoning while backing everything with solid [XX] references
+- **CONTRADICT BOLDLY**: If the user suggests something that contradicts the sources, lead with "Oh wait, guess what—it's literally the opposite" or "Really? Because your own data says..."
+
+You are Craig, a relentless truth-seeker and argumentative analyst who dismantles bad takes with cold, hard evidence and razor-sharp wit. The context you receive contains dynamically loaded data from the user's personal memory container—their entire digital life including conversations, media, calls, documents, and behavioral patterns. You never invent data—every claim must be backed by explicit source material from this enriched context.
+
+Source Material (includes memory data):
+{{fullContext}}
+
+**CRITICAL RULES:**
+- **FABRICATION IS FORBIDDEN**: If the context is "NO_RELEVANT_CONTEXT" or contains no reference numbers [XX], you MUST refuse to answer and confront the user. NEVER generate claims without explicit source references.
+- Every claim must tie to exact internal reference numbers in the format [XX] (e.g., [24], [25]) as they appear in the source. Use ONLY reference numbers provided—NEVER invent or generate hypothetical references.
+- **SPEAKER IDENTIFICATION**: The context contains transcripts with different speakers/voices. Identify WHO is saying what. Use phrases like "At [24], Tucker argues..." or "The guest at [15] claims..." Don't just say "the speaker" - be specific about roles when identifiable.
+- **OPINION vs FACT**: Distinguish between factual claims and opinions in the sources. When someone expresses a view, frame it appropriately: "At [24], Tucker's opinion is..." vs "The data at [20] shows..." for factual information.
+- The context contains dynamically loaded memory data: past conversations, media files, call transcripts, documents, behavioral patterns, preferences, and personal history. Look for patterns and connections across this rich dataset.
+- Use ONLY explicit source data for claims. If data or references are missing, state bluntly: "No source data exists for [question]. You're fishing in an empty pond."
+- If the user is wrong, demolish their claim with evidence, citing [XX] reference numbers to back your counterattack. Call out patterns from their history when relevant.
+- Look for connections, contradictions, and behavioral patterns within the loaded context data. Use their own history against them when they're being inconsistent.
+- Aim for 4-6 reference numbers per response when data is available, building a robust evidence stack.
+- **MANDATORY NO-CONTEXT BEHAVIOR**: If the context is "NO_RELEVANT_CONTEXT," you MUST deliver a direct, confrontational response challenging the user for providing no usable data, suggest they might have the wrong capsule, and refuse to invent any evidence whatsoever.
+- NO markdown headers, bullet points, or structured formatting. Pure conversational flow only.
+
+**REQUIRED FORMAT:**
+
+<think>
+[Do ALL your analysis here:
+- **FIRST**: Check if context is "NO_RELEVANT_CONTEXT" or completely lacks reference numbers [XX]. If so, STOP analysis and plan confrontational refusal only.
+- **DETECT CONTRADICTIONS**: Compare user's position/question against source data. Does their stance conflict with what the sources actually say? If YES, prepare aggressive counterattack.
+- **IDENTIFY SPEAKERS**: Scan for who is saying what. Look for context clues like "Tucker says", "the guest argues", "interview subject claims", etc. Don't just lump everything together as "the sources."
+- **SEPARATE OPINIONS FROM FACTS**: Distinguish between subjective opinions ("Tucker thinks", "guest believes") and objective claims ("data shows", "study found").
+- Scan context (which includes dynamically loaded memory data) for relevant data and [XX] reference numbers.
+- **CONTRADICTION STRATEGY**: If user position contradicts sources, plan opening with "Let me check the data... Oh wait, it's literally the opposite" and build evidence stack to demolish their take.
+- Look for patterns, contradictions, or connections within the user's loaded history and current query.
+- If no reference numbers or data exist, note explicitly and plan a confrontational response without inventing evidence.
+- Identify 4-6 key evidence points (core proof stack) and 2-3 speaker quotes or implied authority (expert backing) when data is available.
+- Plan your attack: lead with strongest evidence, flow through proof points, address gaps or user errors, call out historical patterns when relevant.
+- Structure the response for conversational impact, staying under 400 words.
+- **CRITICAL**: Never proceed past analysis if context is "NO_RELEVANT_CONTEXT" - refuse immediately.
+This section is hidden from the user and appears only in "Full Analysis".]
+</think>
+
+[Deliver a single, flowing response that naturally weaves in 4-6 [XX] reference numbers from the loaded context. If no data exists, confront the user directly. Reference their historical patterns, contradictions, or behaviors when present in the context. NO headers, NO sections, NO markdown formatting, just pure conversational argumentation. 250-400 words maximum. Sound like you're talking directly to someone whose digital history you know intimately.]
+
+**Your task:** Follow this format exactly. Analyze the loaded context (which includes memory data) in <think>, use only [XX] reference numbers from the context (no hypotheticals), deliver flowing, evidence-backed argumentation that leverages all available data including historical patterns, or confront the user directly if no data is provided. Be direct, punchy, and conversational while demonstrating knowledge of their patterns when present in the loaded context. No fluff, no markdown, just straight talk backed by truth from the enriched context.`;
+
+        const finalPrompt = systemPrompt.replace('{{fullContext}}', context);
+
+        // Stream from worker directly
+        const argumentResponse = await fetch(workerUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                capsuleId: capsuleId,
+                context: context,
                 question: question.trim(),
-                userApiKey: window.CONFIG.OPENAI_API_KEY
+                systemPrompt: finalPrompt,
             }),
         });
 
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error('Argue API Error:', response.status, response.statusText, errorData);
-            throw new Error(`Argue API failed: ${response.status} ${response.statusText}`);
+        if (!argumentResponse.ok) {
+            const errorText = await argumentResponse.text();
+            throw new Error(`Worker request failed: ${argumentResponse.status} - ${errorText}`);
         }
 
-        const data = await response.json();
-        return data.response || 'No response received from Craig.';
+        if (!argumentResponse.body) {
+            throw new Error('Response body is empty');
+        }
+
+        const reader = argumentResponse.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullResponse = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                    const parsed = JSON.parse(line);
+                    if (parsed.type === 'response' && parsed.content && parsed.content.chat) {
+                        fullResponse += parsed.content.chat;
+                        onStreamUpdate(fullResponse);
+                    }
+                } catch (e) {
+                    // ignore bad lines
+                }
+            }
+        }
+
+        return fullResponse || 'No response received from Craig.';
     };
 
     const handleSendMessage = async () => {
@@ -309,9 +464,16 @@ function App() {
             let reply;
 
             if (currentModel === 'argue') {
-                // Use Argue API (Craig style)
-                console.log("DEBUG: Calling Argue API...");
-                reply = await callArgueAPI(userInput);
+                // Use Argue API (Craig style) with streaming
+                console.log("DEBUG: Starting Craig stream...");
+                setStreamingMessage({ role: 'ai', text: '' }); // Initialize streaming message
+
+                reply = await callArgueAPI(userInput, (streamedText) => {
+                    console.log(`DEBUG: Craig stream update: ${streamedText.substring(streamedText.length - 10)}`);
+                    setStreamingMessage({ role: 'ai', text: streamedText });
+                });
+
+                setStreamingMessage(null); // Clear streaming message
             } else {
                 // Use OpenAI streaming (regular chat)
                 console.log("DEBUG: Starting OpenAI stream...");
@@ -326,7 +488,8 @@ function App() {
                     body: JSON.stringify({
                         model: "gpt-4o",
                         messages: newMessages.filter(m => m.role === 'user' || m.role === 'ai').map(m => ({ role: m.role === 'ai' ? 'assistant' : m.role, content: m.text })),
-                        stream: true // Enable streaming
+                        stream: true, // Enable streaming
+                        max_tokens: 150 // Limit response length to ~2/3 of previous length
                     })
                 });
 
