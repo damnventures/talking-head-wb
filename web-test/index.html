@@ -344,6 +344,21 @@
 
         // Initialize
         window.onload = function() {
+            // Check if model-viewer is available
+            if (typeof customElements !== 'undefined' && customElements.get('model-viewer')) {
+                console.log('✅ Model Viewer library loaded');
+            } else {
+                console.log('⚠️ Model Viewer library not detected, waiting...');
+                setTimeout(() => {
+                    if (typeof customElements !== 'undefined' && customElements.get('model-viewer')) {
+                        console.log('✅ Model Viewer library loaded (delayed)');
+                    } else {
+                        console.error('❌ Model Viewer library failed to load');
+                        addMessage('system', 'Warning: 3D model display may not work properly');
+                    }
+                }, 2000);
+            }
+
             testConnection();
             addMessage('ai', 'Hello! I\'m your Ready Player Me avatar. Load your avatar above and let\'s start chatting!');
         };
@@ -374,15 +389,20 @@
         // Load Ready Player Me Avatar
         function loadAvatar() {
             const avatarUrl = document.getElementById('avatarUrl').value.trim();
+            console.log('🎭 Loading avatar:', avatarUrl);
+
             if (!avatarUrl) {
                 addMessage('system', 'Please enter a valid Ready Player Me avatar URL');
                 return;
             }
 
             const avatarContainer = document.getElementById('avatarContainer');
+            console.log('Avatar container found:', avatarContainer);
 
             // Check if it's a .glb URL (actual avatar model)
             if (avatarUrl.includes('.glb')) {
+                console.log('Loading 3D avatar model:', avatarUrl);
+
                 // Create model viewer for the actual 3D model
                 const modelViewer = document.createElement('model-viewer');
                 modelViewer.src = avatarUrl;
@@ -390,18 +410,51 @@
                 modelViewer.style.width = '100%';
                 modelViewer.style.height = '100%';
                 modelViewer.setAttribute('camera-controls', '');
-                modelViewer.setAttribute('environment-image', 'neutral');
+                modelViewer.setAttribute('auto-rotate', '');
                 modelViewer.setAttribute('shadow-intensity', '1');
-                modelViewer.setAttribute('camera-orbit', '0deg 85deg 0.8m');
-                modelViewer.setAttribute('field-of-view', '25deg');
-                modelViewer.setAttribute('min-camera-orbit', 'auto 70deg 0.6m');
-                modelViewer.setAttribute('max-camera-orbit', 'auto 100deg 1.2m');
-                modelViewer.setAttribute('camera-target', '0m 1.65m 0m');
+                modelViewer.setAttribute('camera-orbit', '0deg 75deg 1.2m');
+                modelViewer.setAttribute('field-of-view', '30deg');
+                modelViewer.setAttribute('camera-target', '0m 1.6m 0m');
+                modelViewer.setAttribute('exposure', '1');
 
-                avatarContainer.innerHTML = '';
-                avatarContainer.appendChild(modelViewer);
+                // Add loading and error event listeners
+                modelViewer.addEventListener('load', () => {
+                    console.log('✅ Avatar model loaded successfully');
+                    addMessage('system', 'Avatar model loaded successfully!');
+                });
 
-                addMessage('system', 'Avatar model loaded! This is your actual 3D avatar.');
+                modelViewer.addEventListener('error', (e) => {
+                    console.error('❌ Avatar model failed to load:', e);
+                    addMessage('system', 'Failed to load 3D model. Trying fallback display...');
+
+                    // Fallback: show a simple placeholder
+                    avatarContainer.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; border-radius: 15px; color: #666;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 10px;">🎭</div>
+                                <div>Avatar Failed to Load</div>
+                                <div style="font-size: 12px; margin-top: 5px;">URL: ${avatarUrl.substring(0, 50)}...</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // Show loading indicator first
+                avatarContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; border-radius: 15px; color: #666;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 32px; margin-bottom: 10px;">⏳</div>
+                            <div>Loading Avatar...</div>
+                        </div>
+                    </div>
+                `;
+
+                // Add model viewer after loading indicator
+                setTimeout(() => {
+                    avatarContainer.innerHTML = '';
+                    avatarContainer.appendChild(modelViewer);
+                    console.log('Model viewer created and added to container');
+                }, 500);
             } else {
                 // If not a .glb URL, treat as Ready Player Me creation URL
                 const iframe = document.createElement('iframe');
