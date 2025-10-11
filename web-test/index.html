@@ -326,6 +326,8 @@
         ];
 
         let isConnected = false;
+        let currentModel = 'gpt-5'; // Start with GPT-5, fallback to others if needed
+        const availableModels = ['gpt-5', 'gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'];
 
         // Rate limiting state
         let requestQueue = [];
@@ -527,7 +529,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'gpt-5-turbo',
+                        model: currentModel,
                         messages: conversationHistory,
                         max_tokens: 150,
                         temperature: 0.7
@@ -539,6 +541,18 @@
                         throw new Error('Rate limit exceeded. Please wait a moment and try again.');
                     } else if (response.status === 401) {
                         throw new Error('API key invalid. Please check your OpenAI API key.');
+                    } else if (response.status === 404) {
+                        // Try fallback to next available model
+                        const currentIndex = availableModels.indexOf(currentModel);
+                        if (currentIndex < availableModels.length - 1) {
+                            currentModel = availableModels[currentIndex + 1];
+                            addMessage('system', `${availableModels[currentIndex]} not available, trying ${currentModel}...`);
+                            // Retry with new model
+                            processQueue();
+                            return;
+                        } else {
+                            throw new Error('No available models found for your account tier.');
+                        }
                     } else {
                         throw new Error(`API call failed: ${response.status}`);
                     }

@@ -84,7 +84,7 @@ public class ConversationManager : MonoBehaviour
             // Make request to OpenAI using GPT-5
             var chatRequest = new ChatRequest(
                 messages: messages,
-                model: "gpt-5-turbo", // Using GPT-5
+                model: "gpt-5", // Using GPT-5
                 maxTokens: 150,
                 temperature: 0.7
             );
