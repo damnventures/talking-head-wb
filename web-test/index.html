@@ -327,6 +327,12 @@
 
         let isConnected = false;
 
+        // Rate limiting state
+        let requestQueue = [];
+        let isProcessingQueue = false;
+        let lastRequestTime = 0;
+        const REQUEST_INTERVAL = 20000; // 20 seconds between requests for free tier (3 per minute)
+
         // DOM Elements
         const chatMessages = document.getElementById('chatMessages');
         const messageInput = document.getElementById('messageInput');
@@ -448,28 +454,69 @@
             }
         }
 
-        // Send message
+        // Send message with rate limiting
         async function sendMessage() {
             const message = messageInput.value.trim();
             if (!message) return;
 
-            // Disable input while processing
-            messageInput.disabled = true;
-            sendBtn.disabled = true;
-
-            // Add user message
+            // Add user message immediately
             addMessage('user', message);
             messageInput.value = '';
-
-            // Show typing indicator
-            typingIndicator.style.display = 'block';
-            chatMessages.scrollTop = chatMessages.scrollHeight;
 
             // Add to conversation history
             conversationHistory.push({
                 role: 'user',
                 content: message
             });
+
+            // Queue the API request
+            queueAPIRequest(message);
+        }
+
+        // Queue system for rate limiting
+        function queueAPIRequest(message) {
+            requestQueue.push(message);
+
+            if (!isProcessingQueue) {
+                processQueue();
+            } else {
+                addMessage('system', `Request queued. ${requestQueue.length} requests ahead of you.`);
+            }
+        }
+
+        // Process queued requests with rate limiting
+        async function processQueue() {
+            if (requestQueue.length === 0) {
+                isProcessingQueue = false;
+                return;
+            }
+
+            isProcessingQueue = true;
+
+            // Check if we need to wait
+            const timeSinceLastRequest = Date.now() - lastRequestTime;
+            if (timeSinceLastRequest < REQUEST_INTERVAL) {
+                const waitTime = REQUEST_INTERVAL - timeSinceLastRequest;
+                const waitSeconds = Math.ceil(waitTime / 1000);
+
+                addMessage('system', `Rate limit: waiting ${waitSeconds} seconds before next request...`);
+
+                setTimeout(() => {
+                    processQueue();
+                }, waitTime);
+                return;
+            }
+
+            // Process the next request
+            const currentMessage = requestQueue.shift();
+
+            // Disable input while processing
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Show typing indicator
+            typingIndicator.style.display = 'block';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
 
             try {
                 // Call OpenAI API
@@ -480,7 +527,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'gpt-3.5-turbo',
+                        model: 'gpt-5-turbo',
                         messages: conversationHistory,
                         max_tokens: 150,
                         temperature: 0.7
@@ -522,11 +569,19 @@
                     addMessage('system', `Error: ${error.message}`);
                 }
             } finally {
+                // Update last request time
+                lastRequestTime = Date.now();
+
                 // Hide typing indicator and re-enable input
                 typingIndicator.style.display = 'none';
                 messageInput.disabled = false;
                 sendBtn.disabled = false;
                 messageInput.focus();
+
+                // Process next item in queue after a delay
+                setTimeout(() => {
+                    processQueue();
+                }, 1000);
             }
         }
 

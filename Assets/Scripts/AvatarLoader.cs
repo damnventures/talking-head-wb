@@ -44,6 +44,7 @@ public class AvatarLoader : MonoBehaviour
 
         loadedAvatar.transform.localPosition = Vector3.zero;
         loadedAvatar.transform.localRotation = Quaternion.identity;
+        loadedAvatar.transform.localScale = Vector3.one;
 
         // Get the animator component for conversation manager
         var animator = loadedAvatar.GetComponent<Animator>();
