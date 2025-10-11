@@ -11,7 +11,7 @@ public class ConversationManager : MonoBehaviour
     [SerializeField] private Button sendButton;
     [SerializeField] private InputField inputField;
     [SerializeField] private Text conversationText;
-    [SerializeField] private Animator avatarAnimator;
+    [SerializeField] public Animator avatarAnimator;
 
     private OpenAIClient openai;
     private List<Message> messages = new List<Message>();

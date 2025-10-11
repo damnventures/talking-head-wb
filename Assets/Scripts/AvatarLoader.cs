@@ -46,13 +46,25 @@ public class AvatarLoader : MonoBehaviour
         loadedAvatar.transform.localRotation = Quaternion.identity;
         loadedAvatar.transform.localScale = Vector3.one;
 
-        // Get the animator component for conversation manager
+        // Get the animator component and connect it to conversation manager
         var animator = loadedAvatar.GetComponent<Animator>();
         var conversationManager = FindObjectOfType<ConversationManager>();
         if (conversationManager != null && animator != null)
         {
-            // You can set the animator reference here if needed
-            Debug.Log("Avatar loaded successfully with animator");
+            // Set the animator controller from our project
+            var animatorController = Resources.Load<RuntimeAnimatorController>("AvatarController");
+            if (animatorController != null)
+            {
+                animator.runtimeAnimatorController = animatorController;
+            }
+
+            // Connect the animator to conversation manager
+            conversationManager.avatarAnimator = animator;
+            Debug.Log("Avatar animator connected to ConversationManager");
+        }
+        else
+        {
+            Debug.LogWarning($"Missing components: ConversationManager={conversationManager != null}, Animator={animator != null}");
         }
 
         Debug.Log("Avatar loaded successfully!");

@@ -177,6 +177,7 @@ Camera:
   m_far: 1000
   m_orthographic: 0
   m_orthographicSize: 5
+  field of view: 45
   m_depth: -1
   m_cullingMask:
     serializedVersion: 2
