@@ -18,20 +18,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Use the Shrinked API key from environment variables or fallback
-    const shrinkedApiKey = process.env.SHRINKED_API_KEY || '371266e010bcb7674532903e8678256a7d3292b3731a0dfba4ff6e2b6de5149b';
+    // Extract the user's OpenAI API key from the request body
+    const { userApiKey, ...requestBody } = req.body;
 
-    console.log('DEBUG - API Request Body:', JSON.stringify(req.body, null, 2));
-    console.log('DEBUG - Using Shrinked API Key:', shrinkedApiKey.substring(0, 10) + '...');
+    console.log('DEBUG - API Request Body:', JSON.stringify(requestBody, null, 2));
+    console.log('DEBUG - Using User API Key:', userApiKey ? userApiKey.substring(0, 15) + '...' : 'Not provided');
 
-    // Forward the request to the actual Craig API using the Shrinked API key
+    if (!userApiKey) {
+      res.status(400).json({ error: 'User API key is required for Argue mode' });
+      return;
+    }
+
+    // Forward the request to the actual Craig API using the user's OpenAI API key
     const response = await fetch('https://craig.shrinked.ai/api/argue', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${shrinkedApiKey}`
+        'Authorization': `Bearer ${userApiKey}`
       },
-      body: JSON.stringify(req.body)
+      body: JSON.stringify(requestBody)
     });
 
     console.log('DEBUG - Craig API Response Status:', response.status);
