@@ -1,0 +1,485 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+// TalkingHead system will be loaded as ES modules
+let TalkingHead = null;
+
+function App() {
+    const [messages, setMessages] = useState([{ type: 'system', content: 'Welcome! Load an avatar and start chatting.' }]);
+    const [currentMessage, setCurrentMessage] = useState('');
+    const [isConnected, setIsConnected] = useState(false);
+    const [isTalking, setIsTalking] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes,mouthOpen,mouthSmile,eyesClosed,eyesLookUp,eyesLookDown&textureSizeLimit=1024&textureFormat=png');
+    const [aiModel, setAiModel] = useState('openai');
+    const [streamingMessage, setStreamingMessage] = useState('');
+    const [capsuleId, setCapsuleId] = useState('');
+    const chatBoxRef = useRef(null);
+    const avatarContainerRef = useRef(null);
+    const talkingHeadRef = useRef(null);
+    const initializationRef = useRef(false);
+
+    // Initialize TalkingHead system
+    useEffect(() => {
+        if (initializationRef.current || typeof window === 'undefined') return;
+        initializationRef.current = true;
+
+        const initializeTalkingHead = async () => {
+            try {
+                // Dynamically import the TalkingHead module (client-side only)
+                // Use Function constructor to prevent webpack from resolving at build time
+                const importPath = `/modules/talkinghead.mjs?v=${Date.now()}`;
+                const dynamicImport = new Function('path', 'return import(path)');
+                const talkingHeadModule = await dynamicImport(importPath);
+                TalkingHead = talkingHeadModule.TalkingHead || talkingHeadModule.default;
+
+                // Initialize TalkingHead with the avatar container
+                if (avatarContainerRef.current && TalkingHead) {
+                    const options = {
+                        modelPixelRatio: window.devicePixelRatio || 1,
+                        modelFPS: 60,
+                        modelMovementFactor: 1,
+                        modelRoot: "Hips", // Ready Player Me avatars use "Hips" as root
+                        cameraView: 'upper', // Show upper body like the working example
+                        cameraDistance: 1.2,
+                        cameraX: 0,
+                        cameraY: 0.1,
+                        cameraRotateEnable: true,
+                        cameraPanEnable: true,
+                        cameraZoomEnable: true,
+                        lightAmbientIntensity: 2,
+                        lightDirectIntensity: 20,
+                        lightDirectPhi: 1.2,
+                        lightDirectTheta: 1.8,
+                        avatarMood: "neutral",
+                        avatarMute: false,
+                        avatarIdleEyeContact: 0.5,
+                        avatarIdleHeadMove: 0.3,
+                        avatarSpeakingEyeContact: 0.7,
+                        avatarSpeakingHeadMove: 0.5,
+                        lipsyncLang: 'en'
+                    };
+
+                    talkingHeadRef.current = new TalkingHead(avatarContainerRef.current, options);
+                    setIsConnected(true);
+                    console.log('TalkingHead initialized successfully');
+
+                    // Load the default avatar
+                    if (avatarUrl) {
+                        loadAvatar(avatarUrl);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to initialize TalkingHead:', error);
+                // Still allow chat functionality even if TalkingHead fails
+                setIsConnected(true);
+                setMessages(prev => [...prev, { type: 'system', content: 'TalkingHead failed to load, but chat functionality is available.' }]);
+            }
+        };
+
+        initializeTalkingHead();
+
+        // Test OpenAI connection
+        const testConnection = async () => {
+            try {
+                if (typeof window === 'undefined' || !window.CONFIG?.OPENAI_API_KEY) {
+                    setMessages(prev => [...prev, { type: 'system', content: 'Error: config.js not found or API key is missing.' }]);
+                    return;
+                }
+                const response = await fetch('https://api.openai.com/v1/models', {
+                    headers: { 'Authorization': `Bearer ${window.CONFIG.OPENAI_API_KEY}` }
+                });
+                if (response.ok) {
+                    setMessages(prev => [...prev, { type: 'system', content: 'OpenAI connection established.' }]);
+                } else {
+                    throw new Error('API key validation failed');
+                }
+            } catch (error) {
+                console.error('Connection test failed:', error);
+                setMessages(prev => [...prev, { type: 'system', content: `Warning: OpenAI connection failed. ${error.message}` }]);
+            }
+        };
+        testConnection();
+    }, []);
+
+    // Scroll to bottom when messages change
+    useEffect(() => {
+        if (chatBoxRef.current) {
+            chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+        }
+    }, [messages, streamingMessage]);
+
+    const loadAvatar = async (url) => {
+        if (!talkingHeadRef.current || !url) return;
+
+        try {
+            setIsLoading(true);
+            console.log('Loading avatar:', url);
+
+            await talkingHeadRef.current.showAvatar({
+                url: url,
+                body: 'F', // or 'M' for male
+                avatarMood: 'neutral',
+                lipsyncLang: 'en'
+            });
+
+            console.log('Avatar loaded successfully');
+            setIsLoading(false);
+        } catch (error) {
+            console.error('Failed to load avatar:', error);
+            setIsLoading(false);
+            setMessages(prev => [...prev, {
+                type: 'system',
+                content: `Failed to load avatar from ${url}. Please enter a valid Ready Player Me avatar URL (create one at https://readyplayer.me/).`
+            }]);
+        }
+    };
+
+    const handleSendMessage = async () => {
+        if (currentMessage.trim() === '') return;
+
+        const userMessage = currentMessage.trim();
+        setCurrentMessage('');
+        setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
+
+        try {
+            if (aiModel === 'craig') {
+                await callArgueAPI(userMessage, (update) => {
+                    setStreamingMessage(update);
+                });
+            } else {
+                await callOpenAI(userMessage);
+            }
+        } catch (error) {
+            console.error('Error calling API:', error);
+            setMessages(prev => [...prev, { type: 'system', content: 'Error: ' + error.message }]);
+        }
+    };
+
+    const callOpenAI = async (message) => {
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.CONFIG?.OPENAI_API_KEY || 'your-api-key'}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: [{ role: "user", content: message }],
+                    stream: true,
+                    max_tokens: 100 // Limit response length as requested
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullResponse = '';
+
+            setStreamingMessage('');
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            const content = data.choices?.[0]?.delta?.content || '';
+                            if (content) {
+                                fullResponse += content;
+                                setStreamingMessage(fullResponse);
+                            }
+                        } catch (e) {
+                            // Skip malformed JSON
+                        }
+                    }
+                }
+            }
+
+            setStreamingMessage('');
+            setMessages(prev => [...prev, { type: 'ai', content: fullResponse }]);
+
+            // Convert text to speech and animate avatar
+            if (fullResponse && talkingHeadRef.current) {
+                speakWithAvatar(fullResponse);
+            }
+
+        } catch (error) {
+            console.error('OpenAI API error:', error);
+            throw error;
+        }
+    };
+
+    const callArgueAPI = async (question) => {
+        if (!capsuleId) {
+            throw new Error('Capsule ID is required for Argue mode. Please enter a capsule ID.');
+        }
+
+        const response = await fetch('/api/argue', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                capsuleId: capsuleId,
+                question: question.trim(),
+                userApiKey: window.CONFIG.SHRINKED_API_KEY
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Argue API Error:', response.status, response.statusText, errorData);
+            throw new Error(`Failed to call Argue API: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        setStreamingMessage('');
+        setMessages(prev => [...prev, { type: 'ai', content: result.response || 'No response from Argue API' }]);
+
+        // Convert text to speech and animate avatar
+        if (result.response && talkingHeadRef.current) {
+            speakWithAvatar(result.response);
+        }
+    };
+
+    // Helper function to play audio buffer
+    const playAudioBuffer = (audioBuffer, onEnd) => {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext.decodeAudioData(audioBuffer.slice(0), (decodedData) => {
+            const source = audioContext.createBufferSource();
+            source.buffer = decodedData;
+            source.connect(audioContext.destination);
+            source.onended = onEnd;
+            source.start();
+        }).catch((error) => {
+            console.error('Error decoding audio:', error);
+            onEnd();
+        });
+    };
+
+    const speakWithAvatar = async (text) => {
+        if (!text) return;
+
+        try {
+            setIsTalking(true);
+
+            // Use Pipecat TTS endpoint if ElevenLabs is configured
+            if (window.CONFIG?.ELEVENLABS_API_KEY) {
+                // Use Pipecat streaming TTS endpoint
+                const response = await fetch('/api/pipecat-tts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        voiceId: 'EXAVITQu4vr4xnSDxMaL',
+                        apiKey: window.CONFIG.ELEVENLABS_API_KEY
+                    })
+                });
+
+                if (response.ok) {
+                    const audioBuffer = await response.arrayBuffer();
+
+                    // Try to use TalkingHead if available, otherwise just play audio
+                    if (talkingHeadRef.current && talkingHeadRef.current.speakText) {
+                        try {
+                            await talkingHeadRef.current.speakText(text, {
+                                audio: audioBuffer,
+                                lipsync: true
+                            });
+                            setIsTalking(false);
+                        } catch (error) {
+                            console.error('TalkingHead speakText failed:', error);
+                            // Play audio without avatar animation
+                            playAudioBuffer(audioBuffer, () => setIsTalking(false));
+                        }
+                    } else {
+                        // No avatar, just play the high-quality audio
+                        playAudioBuffer(audioBuffer, () => setIsTalking(false));
+                    }
+                } else {
+                    // Pipecat TTS failed, fall back to browser TTS
+                    console.error('Pipecat TTS failed:', await response.text());
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 1;
+                    utterance.pitch = 1;
+                    utterance.volume = 1;
+                    utterance.onend = () => setIsTalking(false);
+                    speechSynthesis.speak(utterance);
+
+                    // Trigger TalkingHead lip sync animation if available
+                    if (talkingHeadRef.current && talkingHeadRef.current.speakText) {
+                        try {
+                            talkingHeadRef.current.speakText(text, { lipsync: true });
+                        } catch (error) {
+                            console.error('TalkingHead animation failed:', error);
+                        }
+                    }
+                }
+            } else {
+                // Fallback to browser TTS
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+
+                utterance.onend = () => {
+                    setIsTalking(false);
+                };
+
+                speechSynthesis.speak(utterance);
+
+                // Trigger TalkingHead lip sync animation with browser TTS if available
+                if (talkingHeadRef.current && talkingHeadRef.current.speakText) {
+                    try {
+                        talkingHeadRef.current.speakText(text, { lipsync: true });
+                    } catch (error) {
+                        console.error('TalkingHead animation failed:', error);
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('Error in text-to-speech:', error);
+            setIsTalking(false);
+        }
+    };
+
+    const handleLoadAvatar = () => {
+        if (avatarUrl) {
+            loadAvatar(avatarUrl);
+        }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleSendMessage();
+        }
+    };
+
+    return (
+        <div className="container">
+            <div className="avatar-section">
+                <div className="avatar-container" ref={avatarContainerRef}>
+                    {isLoading && <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#666'}}>Loading avatar...</div>}
+                </div>
+                <div className="avatar-controls">
+                    <input
+                        type="text"
+                        className="avatar-url-input"
+                        value={avatarUrl}
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                        placeholder="Enter avatar URL"
+                    />
+                    <button
+                        className="load-avatar-btn"
+                        onClick={handleLoadAvatar}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? 'Loading...' : 'Load Avatar'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="chat-section">
+                <div className="chat-header">
+                    <h1>
+                        <span
+                            className={`status-indicator ${isConnected ? 'connected' : ''}`}
+                        ></span>
+                        TalkingHead Chat
+                    </h1>
+                    <p>Quick web-based version to test the Ready Player Me + OpenAI integration locally.</p>
+
+                    <div className="model-switcher">
+                        <label>
+                            <input
+                                type="radio"
+                                value="openai"
+                                checked={aiModel === 'openai'}
+                                onChange={(e) => setAiModel(e.target.value)}
+                            />
+                            OpenAI GPT-4o
+                        </label>
+                        <label>
+                            <input
+                                type="radio"
+                                value="craig"
+                                checked={aiModel === 'craig'}
+                                onChange={(e) => setAiModel(e.target.value)}
+                            />
+                            Craig (Argumentative)
+                        </label>
+                    </div>
+
+                    {aiModel === 'craig' && (
+                        <div className="capsule-input">
+                            <label htmlFor="capsule-id">Capsule ID:</label>
+                            <input
+                                id="capsule-id"
+                                type="text"
+                                className="capsule-id-input"
+                                value={capsuleId}
+                                onChange={(e) => setCapsuleId(e.target.value)}
+                                placeholder="Enter your capsule ID for Craig mode"
+                            />
+                            <small>Required for Craig mode to analyze your data</small>
+                        </div>
+                    )}
+                </div>
+
+                <div className="chat-messages" ref={chatBoxRef}>
+                    {messages.map((message, index) => (
+                        <div key={index} className={`message ${message.type}`}>
+                            {message.content}
+                        </div>
+                    ))}
+                    {streamingMessage && (
+                        <div className="message ai">
+                            {streamingMessage}
+                            <span className="cursor">▊</span>
+                        </div>
+                    )}
+                    {isTalking && (
+                        <div className="typing-indicator" style={{display: 'flex'}}>
+                            Avatar is speaking...
+                        </div>
+                    )}
+                </div>
+
+                <div className="chat-input">
+                    <div className="input-container">
+                        <input
+                            type="text"
+                            className="message-input"
+                            value={currentMessage}
+                            onChange={(e) => setCurrentMessage(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                            placeholder="Type your message..."
+                            disabled={!isConnected}
+                        />
+                        <button
+                            className="send-btn"
+                            onClick={handleSendMessage}
+                            disabled={!isConnected || currentMessage.trim() === ''}
+                        >
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default App;

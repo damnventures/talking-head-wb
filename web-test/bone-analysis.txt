@@ -1,0 +1,156 @@
+============================================================
+READY PLAYER ME GLB BONE ANALYSIS REPORT
+============================================================
+
+Analysis Date: 2025-10-12T00:25:37.118Z
+GLB URL: https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb
+Total Bones Found: 38
+
+KEY BONES IDENTIFIED:
+------------------------------
+Root Bone: Hips
+Head Bones: Head
+Neck Bones: Neck
+Spine Bones: Spine
+
+COMPLETE BONE LIST (Alphabetical):
+------------------------------
+  1: Head
+  2: Hips
+  3: LeftEye
+  4: LeftHand
+  5: LeftHandIndex1
+  6: LeftHandIndex2
+  7: LeftHandIndex3
+  8: LeftHandMiddle1
+  9: LeftHandMiddle2
+ 10: LeftHandMiddle3
+ 11: LeftHandPinky1
+ 12: LeftHandPinky2
+ 13: LeftHandPinky3
+ 14: LeftHandRing1
+ 15: LeftHandRing2
+ 16: LeftHandRing3
+ 17: LeftHandThumb1
+ 18: LeftHandThumb2
+ 19: LeftHandThumb3
+ 20: Neck
+ 21: RightEye
+ 22: RightHand
+ 23: RightHandIndex1
+ 24: RightHandIndex2
+ 25: RightHandIndex3
+ 26: RightHandMiddle1
+ 27: RightHandMiddle2
+ 28: RightHandMiddle3
+ 29: RightHandPinky1
+ 30: RightHandPinky2
+ 31: RightHandPinky3
+ 32: RightHandRing1
+ 33: RightHandRing2
+ 34: RightHandRing3
+ 35: RightHandThumb1
+ 36: RightHandThumb2
+ 37: RightHandThumb3
+ 38: Spine
+
+BONE HIERARCHY:
+------------------------------
+AvatarRoot:
+  ├─ Hips
+
+Hips:
+  ├─ Spine
+
+Spine:
+  ├─ Neck
+  ├─ RightHand
+  ├─ LeftHand
+
+Neck:
+  ├─ Head
+
+Head:
+  ├─ RightEye
+  ├─ LeftEye
+
+RightHand:
+  ├─ RightHandIndex1
+  ├─ RightHandMiddle1
+  ├─ RightHandRing1
+  ├─ RightHandPinky1
+  ├─ RightHandThumb1
+
+RightHandIndex1:
+  ├─ RightHandIndex2
+
+RightHandIndex2:
+  ├─ RightHandIndex3
+
+RightHandMiddle1:
+  ├─ RightHandMiddle2
+
+RightHandMiddle2:
+  ├─ RightHandMiddle3
+
+RightHandRing1:
+  ├─ RightHandRing2
+
+RightHandRing2:
+  ├─ RightHandRing3
+
+RightHandPinky1:
+  ├─ RightHandPinky2
+
+RightHandPinky2:
+  ├─ RightHandPinky3
+
+RightHandThumb1:
+  ├─ RightHandThumb2
+
+RightHandThumb2:
+  ├─ RightHandThumb3
+
+LeftHand:
+  ├─ LeftHandIndex1
+  ├─ LeftHandMiddle1
+  ├─ LeftHandRing1
+  ├─ LeftHandPinky1
+  ├─ LeftHandThumb1
+
+LeftHandIndex1:
+  ├─ LeftHandIndex2
+
+LeftHandIndex2:
+  ├─ LeftHandIndex3
+
+LeftHandMiddle1:
+  ├─ LeftHandMiddle2
+
+LeftHandMiddle2:
+  ├─ LeftHandMiddle3
+
+LeftHandRing1:
+  ├─ LeftHandRing2
+
+LeftHandRing2:
+  ├─ LeftHandRing3
+
+LeftHandPinky1:
+  ├─ LeftHandPinky2
+
+LeftHandPinky2:
+  ├─ LeftHandPinky3
+
+LeftHandThumb1:
+  ├─ LeftHandThumb2
+
+LeftHandThumb2:
+  ├─ LeftHandThumb3
+
+TALKINGHEAD CONFIGURATION SUGGESTIONS:
+------------------------------
+Root bone for TalkingHead: "Hips"
+Head bone for TalkingHead: "Head"
+Neck bone for TalkingHead: "Neck"
+Spine bones for TalkingHead: "Spine"
