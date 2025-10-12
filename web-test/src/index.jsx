@@ -9,10 +9,10 @@ function App() {
     const [isConnected, setIsConnected] = useState(false);
     const [isTalking, setIsTalking] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes,mouthOpen,mouthSmile,eyesClosed,eyesLookUp,eyesLookDown&textureSizeLimit=1024&textureFormat=png');
+    const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes&lod=0&textureSizeLimit=1024&textureFormat=png');
     const [aiModel, setAiModel] = useState('openai');
     const [streamingMessage, setStreamingMessage] = useState('');
-    const [capsuleId, setCapsuleId] = useState('');
+    const [capsuleId, setCapsuleId] = useState('68c32cf3735fb4ac0ef3ccbf');
     const chatBoxRef = useRef(null);
     const avatarContainerRef = useRef(null);
     const talkingHeadRef = useRef(null);
@@ -40,7 +40,7 @@ function App() {
                         modelMovementFactor: 1,
                         modelRoot: "Hips", // Ready Player Me avatars use "Hips" as root
                         cameraView: 'upper', // Show upper body like the working example
-                        cameraDistance: 0.6, // Make model twice larger by reducing distance
+                        cameraDistance: 0.8,
                         cameraX: 0,
                         cameraY: 0.1,
                         cameraRotateEnable: true,
@@ -223,31 +223,70 @@ function App() {
             throw new Error('Capsule ID is required for Argue mode. Please enter a capsule ID.');
         }
 
-        const response = await fetch('/api/argue', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                capsuleId: capsuleId,
-                question: question.trim(),
-                userApiKey: window.CONFIG.SHRINKED_API_KEY
-            }),
-        });
+        try {
+            const response = await fetch('/api/argue?stream=true', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/stream',
+                },
+                body: JSON.stringify({
+                    capsuleId: capsuleId,
+                    question: question.trim(),
+                    userApiKey: window.CONFIG.SHRINKED_API_KEY
+                }),
+            });
 
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error('Argue API Error:', response.status, response.statusText, errorData);
-            throw new Error(`Failed to call Argue API: ${response.status} ${response.statusText}`);
-        }
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error('Argue API Error:', response.status, response.statusText, errorData);
+                throw new Error(`Failed to call Argue API: ${response.status} ${response.statusText}`);
+            }
 
-        const result = await response.json();
-        setStreamingMessage('');
-        setMessages(prev => [...prev, { type: 'ai', content: result.response || 'No response from Argue API' }]);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullResponse = '';
 
-        // Convert text to speech and animate avatar
-        if (result.response && talkingHeadRef.current) {
-            speakWithAvatar(result.response);
+            setStreamingMessage('');
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+
+                            if (data.type === 'response' && data.content?.chat) {
+                                fullResponse += data.content.chat;
+                                setStreamingMessage(fullResponse);
+                            } else if (data.type === 'final' && data.response) {
+                                // Final response received
+                                fullResponse = data.response;
+                                break;
+                            }
+                        } catch (e) {
+                            // Skip malformed JSON
+                        }
+                    }
+                }
+            }
+
+            setStreamingMessage('');
+            setMessages(prev => [...prev, { type: 'ai', content: fullResponse }]);
+
+            // Convert text to speech and animate avatar
+            if (fullResponse && talkingHeadRef.current) {
+                speakWithAvatar(fullResponse);
+            }
+
+        } catch (error) {
+            console.error('Argue API streaming error:', error);
+            throw error;
         }
     };
 
@@ -282,7 +321,7 @@ function App() {
                     },
                     body: JSON.stringify({
                         text: text,
-                        voiceId: 'EXAVITQu4vr4xnSDxMaL',
+                        voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - Professional, warm female voice
                         apiKey: window.CONFIG.ELEVENLABS_API_KEY
                     })
                 });
@@ -290,62 +329,13 @@ function App() {
                 if (response.ok) {
                     const audioBuffer = await response.arrayBuffer();
 
-                    // Try to use TalkingHead if available, otherwise just play audio
-                    if (talkingHeadRef.current) {
-                        try {
-                            console.log('TalkingHead available, attempting to speak with animation');
+                    // Always play audio first (never block audio)
+                    console.log('Playing high-quality ElevenLabs audio...');
+                    playAudioBuffer(audioBuffer, () => setIsTalking(false));
 
-                            // Create an HTML Audio element from the buffer
-                            const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
-                            const audioUrl = URL.createObjectURL(audioBlob);
-                            const audio = new Audio(audioUrl);
-
-                            // Load the audio
-                            audio.load();
-
-                            // Create word timing for lip sync
-                            const words = text.split(/\s+/).filter(word => word.length > 0);
-
-                            // Estimate audio duration (will be updated when audio loads)
-                            let estimatedDuration = words.length * 0.5; // 0.5 seconds per word estimate
-
-                            audio.addEventListener('loadedmetadata', () => {
-                                const actualDuration = audio.duration;
-                                const timePerWord = actualDuration / words.length;
-
-                                console.log(`Audio duration: ${actualDuration}s, words: ${words.length}`);
-
-                                // Use speakAudio with proper format
-                                talkingHeadRef.current.speakAudio({
-                                    audio: audio,
-                                    words: words,
-                                    wtimes: words.map((_, i) => i * timePerWord * 1000) // Convert to ms
-                                });
-
-                                // Clean up URL and set talking state after duration
-                                setTimeout(() => {
-                                    URL.revokeObjectURL(audioUrl);
-                                    setIsTalking(false);
-                                }, actualDuration * 1000);
-                            });
-
-                            audio.addEventListener('error', (e) => {
-                                console.error('Audio loading error:', e);
-                                URL.revokeObjectURL(audioUrl);
-                                // Fallback to just animation without high-quality audio
-                                talkingHeadRef.current.speakText(text);
-                                setIsTalking(false);
-                            });
-
-                        } catch (error) {
-                            console.error('TalkingHead animation failed:', error);
-                            // Play audio without avatar animation
-                            playAudioBuffer(audioBuffer, () => setIsTalking(false));
-                        }
-                    } else {
-                        // No avatar, just play the high-quality audio
-                        playAudioBuffer(audioBuffer, () => setIsTalking(false));
-                    }
+                    // Skip animation for now since current avatar lacks proper blend shapes
+                    // The "Blend shapes not found" warning confirms this avatar doesn't support facial animation
+                    console.log('DEBUG: Animation skipped - avatar lacks blend shapes for facial animation');
                 } else {
                     // Pipecat TTS failed, fall back to browser TTS
                     console.error('Pipecat TTS failed:', await response.text());

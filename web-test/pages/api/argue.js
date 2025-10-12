@@ -145,7 +145,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    // 3. Collect the full streaming response
+    // 3. Process response with streaming support
     if (!argumentResponse.body) {
       res.status(500).json({ error: 'Response body is empty' });
       return;
@@ -157,7 +157,17 @@ export default async function handler(req, res) {
     let chatResponse = '';
     let reasoningResponse = '';
 
-    // Collect all chunks
+    // Check if client wants streaming (from Accept header or query param)
+    const acceptsStream = req.headers.accept?.includes('text/stream') || req.query.stream === 'true';
+
+    if (acceptsStream) {
+      // Set up streaming response
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+    }
+
+    // Collect and optionally stream chunks
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -189,6 +199,15 @@ export default async function handler(req, res) {
           } else if (parsed.type === 'response' && parsed.content) {
             if (parsed.content.chat) {
               chatResponse += parsed.content.chat;
+
+              // Stream if requested
+              if (acceptsStream) {
+                const streamChunk = JSON.stringify({
+                  type: 'response',
+                  content: { chat: parsed.content.chat }
+                });
+                res.write(`data: ${streamChunk}\n\n`);
+              }
             }
             if (parsed.content.reasoning && !reasoningResponse) {
               reasoningResponse = parsed.content.reasoning;
@@ -205,14 +224,28 @@ export default async function handler(req, res) {
       reasoning: reasoningResponse.substring(0, 100) + '...'
     });
 
-    // Return structured response matching the original format
-    res.status(200).json({
-      success: true,
-      response: chatResponse.trim(),
-      reasoning: reasoningResponse.trim(),
-      capsuleId: capsuleId,
-      question: question.trim()
-    });
+    if (acceptsStream) {
+      // Send final response for streaming clients
+      const finalResponse = JSON.stringify({
+        type: 'final',
+        success: true,
+        response: chatResponse.trim(),
+        reasoning: reasoningResponse.trim(),
+        capsuleId: capsuleId,
+        question: question.trim()
+      });
+      res.write(`data: ${finalResponse}\n\n`);
+      res.end();
+    } else {
+      // Return standard JSON response for non-streaming clients
+      res.status(200).json({
+        success: true,
+        response: chatResponse.trim(),
+        reasoning: reasoningResponse.trim(),
+        capsuleId: capsuleId,
+        question: question.trim()
+      });
+    }
 
   } catch (error) {
     console.error('Argue API proxy error:', error);

@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { text, voiceId = 'EXAVITQu4vr4xnSDxMaL' } = req.body;
+    const { text, voiceId = '21m00Tcm4TlvDq8ikWAM' } = req.body; // Rachel - Professional, warm female voice
 
     if (!text) {
       res.status(400).json({ error: 'Text is required' });
