@@ -3,6 +3,8 @@
 
 **The Battle: Generic AI vs. Context-Enriched AI with Unlimited Memory**
 
+![WhatsApp Image 2025-10-12 at 14 21 41](https://github.com/user-attachments/assets/f28d6d0b-1460-417a-ad68-efe7f8b1896d)
+
 This platform visualizes the fundamental difference between generic AI (zero context) and context-aware AI with unlimited memory. Watch as two identical avatars—one with no context, one with rich personalized data—respond to the same questions. Real-time W&B Weave scoring reveals the quality gap.
 
 ## Core Concept
