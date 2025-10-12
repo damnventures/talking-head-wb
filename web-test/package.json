@@ -1,7 +1,7 @@
 {
   "name": "web-test",
   "version": "1.0.0",
-  "description": "Quick web-based version to test the Ready Player Me + OpenAI integration locally.",
+  "description": "Evaluation framework comparing generic AI vs context-aware responses using W&B Weave.",
   "main": "config.example.js",
   "scripts": {
     "dev": "next dev",
@@ -16,8 +16,10 @@
   "license": "ISC",
   "dependencies": {
     "@amplitude/analytics-browser": "^2.25.4",
+    "@daytonaio/sdk": "^0.110.1",
     "next": "^14.0.0",
     "node-fetch": "^3.3.2",
+    "playwright": "^1.56.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.168.0",

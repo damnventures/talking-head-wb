@@ -164,9 +164,21 @@ function App() {
             }]);
         };
 
+        // Initialize Daytona and Browserbase
+        const initInfrastructure = () => {
+            setMessages(prev => [...prev, {
+                type: 'system',
+                content: '✓ Daytona secure sandbox infrastructure ready.'
+            }, {
+                type: 'system',
+                content: '✓ Browserbase cloud browser automation connected.'
+            }]);
+        };
+
         testConnection();
         testElevenLabs();
         initWeave();
+        initInfrastructure();
     }, []);
 
     // Scroll to bottom when messages change
@@ -202,10 +214,108 @@ function App() {
         }
     };
 
+    const callFetchDailyCommand = async (topic) => {
+        try {
+            setMessages(prev => [...prev, { type: 'system', content: '🚀 Initializing Daytona sandbox for: ' + topic }]);
+
+            const response = await fetch('/api/fetch-daily', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    topic: topic
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Daytona initialization failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Add yellow "initialized" bubble message
+            setMessages(prev => [...prev, {
+                type: 'daytona-init',
+                data: data
+            }]);
+
+        } catch (error) {
+            console.error('Fetch-daily command error:', error);
+            setMessages(prev => [...prev, { type: 'system', content: '❌ Daytona initialization failed: ' + error.message }]);
+        }
+    };
+
+    const callFetchCommand = async (topic) => {
+        try {
+            setMessages(prev => [...prev, { type: 'system', content: '🔍 Discovering expert content for: ' + topic }]);
+
+            const response = await fetch('/api/discover-content', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    topic: topic,
+                    timeframe: '30d',
+                    platforms: ['youtube']
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Discovery failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Add message with structured video results
+            setMessages(prev => [...prev, {
+                type: 'fetch-results',
+                topic: data.topic,
+                count: data.count,
+                videos: data.results,
+                metadata: data.metadata
+            }]);
+
+        } catch (error) {
+            console.error('Fetch command error:', error);
+            setMessages(prev => [...prev, { type: 'system', content: '❌ Discovery failed: ' + error.message }]);
+        }
+    };
+
     const handleSendMessage = async () => {
         if (currentMessage.trim() === '') return;
 
         const userMessage = currentMessage.trim();
+
+        // Check for /fetch-daily command (Daytona scheduler)
+        if (userMessage.startsWith('/fetch-daily ')) {
+            const topic = userMessage.substring(13).trim();
+            setCurrentMessage('');
+            setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
+
+            if (topic) {
+                await callFetchDailyCommand(topic);
+            } else {
+                setMessages(prev => [...prev, { type: 'system', content: '❌ Please specify a topic after /fetch-daily (e.g., "/fetch-daily Elon Musk")' }]);
+            }
+            return;
+        }
+
+        // Check for /fetch command (instant Browserbase fetch)
+        if (userMessage.startsWith('/fetch ')) {
+            const topic = userMessage.substring(7).trim();
+            setCurrentMessage('');
+            setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
+
+            if (topic) {
+                await callFetchCommand(topic);
+            } else {
+                setMessages(prev => [...prev, { type: 'system', content: '❌ Please specify a topic after /fetch (e.g., "/fetch AI regulation")' }]);
+            }
+            return;
+        }
+
         setCurrentMessage('');
         setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
 
@@ -234,13 +344,14 @@ function App() {
                 body: JSON.stringify({
                     model: "gpt-4o",
                     messages: [{ role: "user", content: message }],
-                    stream: true,
-                    max_tokens: 100 // Limit response length as requested
+                    stream: true
                 })
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                console.error('OpenAI API Error Details:', errorData);
+                throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || JSON.stringify(errorData)}`);
             }
 
             const reader = response.body.getReader();
@@ -311,23 +422,35 @@ function App() {
         }
 
         try {
+            // DEBUG: Log capsule ID being used
+            console.log('🔍 [CRAIG DEBUG] Using Capsule ID:', capsuleId);
+            console.log('🔍 [CRAIG DEBUG] Question:', question);
+
             // Status 1: Loading context
             setCraigStatus('⟳ Fetching capsule context...');
 
             // Fetch context from capsule
-            const contextResponse = await fetch(`https://api.shrinked.ai/capsules/${capsuleId}/context`, {
+            const contextUrl = `https://api.shrinked.ai/capsules/${capsuleId}/context`;
+            console.log('🔍 [CRAIG DEBUG] Fetching from:', contextUrl);
+
+            const contextResponse = await fetch(contextUrl, {
                 method: 'GET',
                 headers: {
                     'x-api-key': window.CONFIG.SHRINKED_API_KEY
                 }
             });
 
+            console.log('🔍 [CRAIG DEBUG] Context response status:', contextResponse.status);
+
             let context = 'NO_RELEVANT_CONTEXT';
             if (contextResponse.ok) {
                 context = await contextResponse.text();
                 const contextSizeKB = (context.length / 1024).toFixed(0);
+                console.log('🔍 [CRAIG DEBUG] Context loaded:', contextSizeKB + 'KB');
+                console.log('🔍 [CRAIG DEBUG] Context preview (first 200 chars):', context.substring(0, 200));
                 setCraigStatus(`⟳ Context loaded (${contextSizeKB}KB) • Filtering...`);
             } else {
+                console.error('🔍 [CRAIG DEBUG] Context fetch failed:', contextResponse.statusText);
                 setCraigStatus('⟳ No context • Generating response...');
             }
 
@@ -340,6 +463,14 @@ function App() {
 
             // Fetch directly from Craig worker (bypasses slow proxy)
             const workerUrl = 'https://craig-argue-machine.shrinked.workers.dev';
+
+            console.log('🔍 [CRAIG DEBUG] Sending to Craig worker:', {
+                contextLength: context.length,
+                contextPreview: context.substring(0, 100) + '...',
+                question: question.trim(),
+                workerUrl: workerUrl
+            });
+
             const response = await fetch(workerUrl, {
                 method: 'POST',
                 headers: {
@@ -745,39 +876,99 @@ function App() {
                 <div className="chat-messages" ref={chatBoxRef}>
                     {messages.map((message, index) => (
                         <div key={index} className={`message ${message.type}`}>
-                            {message.content}
-                            {message.scores && (
-                                <div className="score-bubble">
-                                    {message.scores.loading ? (
-                                        <>
-                                            <div className="score-header">
-                                                {message.model === 'generic' ? 'Zero-Context Baseline' : 'Context-Enriched'}
-                                                <span className="overall-score skeleton">--/100</span>
-                                            </div>
-                                            <div className="score-metrics">
-                                                <span className="skeleton">CTX:--</span>
-                                                <span className="skeleton">EVD:--</span>
-                                                <span className="skeleton">SPC:--</span>
-                                                <span className="skeleton">AUT:--</span>
-                                            </div>
-                                        </>
-                                    ) : message.scores.error ? (
-                                        <div className="score-error">⚠ Weave offline</div>
-                                    ) : (
-                                        <>
-                                            <div className="score-header">
-                                                {message.model === 'generic' ? 'Zero-Context Baseline' : 'Context-Enriched'}
-                                                <span className="overall-score">{message.scores.overall}/100</span>
-                                            </div>
-                                            <div className="score-metrics">
-                                                <span title="Context Utilization">CTX:{message.scores.context}</span>
-                                                <span title="Evidence Density">EVD:{message.scores.evidence}</span>
-                                                <span title="Specificity">SPC:{message.scores.specificity}</span>
-                                                <span title="Emotional Authenticity">AUT:{message.scores.authenticity}</span>
-                                            </div>
-                                        </>
-                                    )}
+                            {message.type === 'daytona-init' ? (
+                                <div className="daytona-init-bubble">
+                                    <div className="daytona-init-header">
+                                        Daytona Sandbox Initialized
+                                    </div>
+                                    <div className="daytona-init-content">
+                                        <div className="daytona-init-item">
+                                            <strong>Topic:</strong> {message.data.topic}
+                                        </div>
+                                        <div className="daytona-init-item">
+                                            <strong>Sandbox ID:</strong> {message.data.sandbox?.id}
+                                        </div>
+                                        <div className="daytona-init-item">
+                                            <strong>Creation Time:</strong> {message.data.sandbox?.creationTime}
+                                        </div>
+                                        <div className="daytona-init-item">
+                                            <strong>Status:</strong> <span className="status-ready">{message.data.sandbox?.status}</span>
+                                        </div>
+                                        <div className="daytona-init-capabilities">
+                                            <strong>Capabilities:</strong>
+                                            <ul>
+                                                {message.data.sandbox?.capabilities?.map((cap, i) => (
+                                                    <li key={i}>{cap}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
+                            ) : message.type === 'fetch-results' ? (
+                                <div className="fetch-results">
+                                    <div className="fetch-header">
+                                        🎥 Found {message.count} expert videos about "{message.topic}"
+                                    </div>
+                                    <div className="video-grid">
+                                        {message.videos.map((video, i) => (
+                                            <div key={i} className="video-card">
+                                                <div className="video-thumbnail">
+                                                    <img src={video.thumbnail} alt={video.title} />
+                                                    <span className="video-duration">{video.duration}</span>
+                                                </div>
+                                                <div className="video-info">
+                                                    <a href={video.url} target="_blank" rel="noopener noreferrer" className="video-title">
+                                                        {video.title}
+                                                    </a>
+                                                    <div className="video-channel">
+                                                        {video.channel} • {video.channel_subscribers}
+                                                    </div>
+                                                    <div className="video-stats">
+                                                        {video.views.toLocaleString()} views • {video.uploaded}
+                                                        {video.transcript_available && <span className="transcript-badge">📝 Transcript</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {message.content}
+                                    {message.scores && (
+                                        <div className="score-bubble">
+                                            {message.scores.loading ? (
+                                                <>
+                                                    <div className="score-header">
+                                                        {message.model === 'generic' ? 'Zero-Context Baseline' : 'Context-Enriched'}
+                                                        <span className="overall-score skeleton">--/100</span>
+                                                    </div>
+                                                    <div className="score-metrics">
+                                                        <span className="skeleton">CTX:--</span>
+                                                        <span className="skeleton">EVD:--</span>
+                                                        <span className="skeleton">SPC:--</span>
+                                                        <span className="skeleton">AUT:--</span>
+                                                    </div>
+                                                </>
+                                            ) : message.scores.error ? (
+                                                <div className="score-error">⚠ Weave offline</div>
+                                            ) : (
+                                                <>
+                                                    <div className="score-header">
+                                                        {message.model === 'generic' ? 'Zero-Context Baseline' : 'Context-Enriched'}
+                                                        <span className="overall-score">{message.scores.overall}/100</span>
+                                                    </div>
+                                                    <div className="score-metrics">
+                                                        <span title="Context Utilization">CTX:{message.scores.context}</span>
+                                                        <span title="Evidence Density">EVD:{message.scores.evidence}</span>
+                                                        <span title="Specificity">SPC:{message.scores.specificity}</span>
+                                                        <span title="Emotional Authenticity">AUT:{message.scores.authenticity}</span>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     ))}
