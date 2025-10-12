@@ -27,3 +27,4 @@ yarn-error.log*
 # Editor
 .DS_Store
 *.log
+.env*.local

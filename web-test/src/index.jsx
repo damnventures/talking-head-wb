@@ -49,6 +49,7 @@ function App() {
     const [streamingMessage, setStreamingMessage] = useState('');
     const [craigStatus, setCraigStatus] = useState(''); // Loading status for Craig
     const [capsuleId, setCapsuleId] = useState('68c32cf3735fb4ac0ef3ccbf');
+    const [showAvatarCreator, setShowAvatarCreator] = useState(false);
     const chatBoxRef = useRef(null);
     const avatarContainerRef = useRef(null);
     const talkingHeadRef = useRef(null);
@@ -179,6 +180,23 @@ function App() {
         testElevenLabs();
         initWeave();
         initInfrastructure();
+
+        // Listen for Ready Player Me avatar creation events
+        const handleAvatarCreated = (event) => {
+            if (event.data?.eventName === 'v1.avatar.exported') {
+                const newAvatarUrl = event.data.data.url;
+                console.log('Avatar created:', newAvatarUrl);
+                setAvatarUrl(newAvatarUrl);
+                setShowAvatarCreator(false);
+                loadAvatar(newAvatarUrl);
+            }
+        };
+
+        window.addEventListener('message', handleAvatarCreated);
+
+        return () => {
+            window.removeEventListener('message', handleAvatarCreated);
+        };
     }, []);
 
     // Scroll to bottom when messages change
@@ -823,7 +841,26 @@ function App() {
                     >
                         {isLoading ? 'Loading...' : 'Load Avatar'}
                     </button>
+                    <button
+                        className="create-avatar-btn"
+                        onClick={() => setShowAvatarCreator(true)}
+                    >
+                        Create New Avatar
+                    </button>
                 </div>
+
+                {showAvatarCreator && (
+                    <div className="avatar-creator-modal" onClick={() => setShowAvatarCreator(false)}>
+                        <div className="avatar-creator-content" onClick={(e) => e.stopPropagation()}>
+                            <button className="close-modal-btn" onClick={() => setShowAvatarCreator(false)}>×</button>
+                            <iframe
+                                src="https://demo.readyplayer.me/avatar?frameApi&bodyType=halfbody"
+                                className="avatar-creator-iframe"
+                                allow="camera *; microphone *"
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="chat-section">
