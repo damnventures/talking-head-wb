@@ -308,29 +308,37 @@ function App() {
         const userMessage = currentMessage.trim();
 
         // Check for /fetch-daily command (Daytona scheduler)
-        if (userMessage.startsWith('/fetch-daily ')) {
-            const topic = userMessage.substring(13).trim();
+        if (userMessage.startsWith('/fetch-daily')) {
+            const topic = userMessage.substring(12).trim();
             setCurrentMessage('');
             setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
 
             if (topic) {
                 await callFetchDailyCommand(topic);
             } else {
-                setMessages(prev => [...prev, { type: 'system', content: '❌ Please specify a topic after /fetch-daily (e.g., "/fetch-daily Elon Musk")' }]);
+                setMessages(prev => [...prev, {
+                    type: 'fetch-prompt',
+                    command: '/fetch-daily',
+                    message: 'What topic would you like me to set up for daily scraping?'
+                }]);
             }
             return;
         }
 
         // Check for /fetch command (instant Browserbase fetch)
-        if (userMessage.startsWith('/fetch ')) {
-            const topic = userMessage.substring(7).trim();
+        if (userMessage.startsWith('/fetch')) {
+            const topic = userMessage.substring(6).trim();
             setCurrentMessage('');
             setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
 
             if (topic) {
                 await callFetchCommand(topic);
             } else {
-                setMessages(prev => [...prev, { type: 'system', content: '❌ Please specify a topic after /fetch (e.g., "/fetch AI regulation")' }]);
+                setMessages(prev => [...prev, {
+                    type: 'fetch-prompt',
+                    command: '/fetch',
+                    message: 'What topic would you like me to fetch?'
+                }]);
             }
             return;
         }
@@ -965,7 +973,19 @@ function App() {
                 <div className="chat-messages" ref={chatBoxRef}>
                     {messages.map((message, index) => (
                         <div key={index} className={`message ${message.type}`}>
-                            {message.type === 'daytona-init' ? (
+                            {message.type === 'fetch-prompt' ? (
+                                <div className="fetch-prompt-bubble">
+                                    <div className="fetch-prompt-header">
+                                        {message.command === '/fetch-daily' ? '📅 Daytona Daily Scraper' : '🔍 Browserbase Content Discovery'}
+                                    </div>
+                                    <div className="fetch-prompt-message">
+                                        {message.message}
+                                    </div>
+                                    <div className="fetch-prompt-example">
+                                        Example: <code>{message.command} SpaceX</code>
+                                    </div>
+                                </div>
+                            ) : message.type === 'daytona-init' ? (
                                 <div className="daytona-init-bubble">
                                     <div className="daytona-init-header">
                                         Daytona Sandbox Initialized
@@ -1013,7 +1033,7 @@ function App() {
                                                         {video.channel} • {video.channel_subscribers}
                                                     </div>
                                                     <div className="video-stats">
-                                                        {video.views.toLocaleString()} views • {video.uploaded}
+                                                        {video.uploaded}
                                                         {video.transcript_available && <span className="transcript-badge">📝 Transcript</span>}
                                                     </div>
                                                 </div>
