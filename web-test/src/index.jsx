@@ -3,6 +3,41 @@ import React, { useState, useEffect, useRef } from 'react';
 // TalkingHead system will be loaded as ES modules
 let TalkingHead = null;
 
+// Call W&B Weave Evaluation API
+const evaluateWithWeave = async (question, response, model, hasContext) => {
+    try {
+        const res = await fetch('http://localhost:8080/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                question,
+                response,
+                model,
+                has_context: hasContext
+            })
+        });
+
+        if (!res.ok) {
+            throw new Error(`Weave API error: ${res.status}`);
+        }
+
+        const data = await res.json();
+        return {
+            overall: data.overall_score,
+            context: data.metrics.context || 0,
+            evidence: data.metrics.evidence || 0,
+            specificity: data.metrics.specificity || 0,
+            authenticity: data.metrics.authenticity || 0
+        };
+    } catch (error) {
+        console.error('Weave evaluation failed:', error);
+        // Return skeleton scores if Weave is unavailable
+        return { overall: 0, context: 0, evidence: 0, specificity: 0, authenticity: 0, loading: false, error: true };
+    }
+};
+
 function App() {
     const [messages, setMessages] = useState([{ type: 'system', content: 'Welcome! Load an avatar and start chatting.' }]);
     const [currentMessage, setCurrentMessage] = useState('');
@@ -89,7 +124,7 @@ function App() {
                     headers: { 'Authorization': `Bearer ${window.CONFIG.OPENAI_API_KEY}` }
                 });
                 if (response.ok) {
-                    setMessages(prev => [...prev, { type: 'system', content: 'OpenAI connection established.' }]);
+                    setMessages(prev => [...prev, { type: 'system', content: '✓ OpenAI connection established.' }]);
                 } else {
                     throw new Error('API key validation failed');
                 }
@@ -98,7 +133,39 @@ function App() {
                 setMessages(prev => [...prev, { type: 'system', content: `Warning: OpenAI connection failed. ${error.message}` }]);
             }
         };
+
+        // Test ElevenLabs connection
+        const testElevenLabs = async () => {
+            try {
+                if (typeof window === 'undefined' || !window.CONFIG?.ELEVENLABS_API_KEY) {
+                    setMessages(prev => [...prev, { type: 'system', content: '⚠ ElevenLabs API key not configured. Using browser TTS fallback.' }]);
+                    return;
+                }
+                const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+                    headers: { 'xi-api-key': window.CONFIG.ELEVENLABS_API_KEY }
+                });
+                if (response.ok) {
+                    setMessages(prev => [...prev, { type: 'system', content: '✓ ElevenLabs TTS ready with word-level lip-sync.' }]);
+                } else {
+                    throw new Error('API key validation failed');
+                }
+            } catch (error) {
+                console.error('ElevenLabs test failed:', error);
+                setMessages(prev => [...prev, { type: 'system', content: `⚠ ElevenLabs unavailable. Using browser TTS.` }]);
+            }
+        };
+
+        // Initialize Weave evaluation
+        const initWeave = () => {
+            setMessages(prev => [...prev, {
+                type: 'system',
+                content: '✓ W&B Weave evaluation initialized. Real-time scoring: Context, Evidence, Specificity, Authenticity.'
+            }]);
+        };
+
         testConnection();
+        testElevenLabs();
+        initWeave();
     }, []);
 
     // Scroll to bottom when messages change
@@ -205,7 +272,26 @@ function App() {
             }
 
             setStreamingMessage('');
-            setMessages(prev => [...prev, { type: 'ai', content: fullResponse }]);
+
+            // Add message with loading skeleton
+            const messageId = Date.now();
+            setMessages(prev => [...prev, {
+                type: 'ai',
+                content: fullResponse,
+                scores: { loading: true },
+                model: 'generic',
+                id: messageId
+            }]);
+
+            // Evaluate with W&B Weave asynchronously (with 1s skeleton delay)
+            const userQuestion = message; // Store for evaluation
+            setTimeout(() => {
+                evaluateWithWeave(userQuestion, fullResponse, 'generic', false).then(scores => {
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === messageId ? { ...msg, scores } : msg
+                    ));
+                });
+            }, 1000);
 
             // Convert text to speech and animate avatar
             if (fullResponse && talkingHeadRef.current) {
@@ -224,28 +310,47 @@ function App() {
         }
 
         try {
-            const response = await fetch('/api/argue?stream=true', {
+            // Fetch context from capsule
+            const contextResponse = await fetch(`https://api.shrinked.ai/capsules/${capsuleId}/context`, {
+                method: 'GET',
+                headers: {
+                    'x-api-key': window.CONFIG.SHRINKED_API_KEY
+                }
+            });
+
+            let context = 'NO_RELEVANT_CONTEXT';
+            if (contextResponse.ok) {
+                context = await contextResponse.text();
+            }
+
+            // Get system prompt from our API
+            const promptResponse = await fetch('/api/argue-prompt');
+            const { prompt: systemPrompt } = await promptResponse.json();
+
+            // Fetch directly from Craig worker (bypasses slow proxy)
+            const workerUrl = 'https://craig-argue-machine.shrinked.workers.dev';
+            const response = await fetch(workerUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'text/stream',
                 },
                 body: JSON.stringify({
-                    capsuleId: capsuleId,
+                    context: context,
                     question: question.trim(),
-                    userApiKey: window.CONFIG.SHRINKED_API_KEY
+                    systemPrompt: systemPrompt
                 }),
             });
 
             if (!response.ok) {
                 const errorData = await response.text();
-                console.error('Argue API Error:', response.status, response.statusText, errorData);
-                throw new Error(`Failed to call Argue API: ${response.status} ${response.statusText}`);
+                console.error('Craig Worker Error:', response.status, response.statusText, errorData);
+                throw new Error(`Failed to call Craig worker: ${response.status} ${response.statusText}`);
             }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullResponse = '';
+            let buffer = '';
 
             setStreamingMessage('');
 
@@ -253,31 +358,47 @@ function App() {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
 
                 for (const line of lines) {
-                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                        try {
-                            const data = JSON.parse(line.slice(6));
+                    if (!line.trim()) continue;
 
-                            if (data.type === 'response' && data.content?.chat) {
-                                fullResponse += data.content.chat;
-                                setStreamingMessage(fullResponse);
-                            } else if (data.type === 'final' && data.response) {
-                                // Final response received
-                                fullResponse = data.response;
-                                break;
-                            }
-                        } catch (e) {
-                            // Skip malformed JSON
+                    try {
+                        const parsed = JSON.parse(line);
+
+                        if (parsed.type === 'response' && parsed.content?.chat) {
+                            fullResponse += parsed.content.chat;
+                            setStreamingMessage(fullResponse);
                         }
+                    } catch (e) {
+                        // Skip malformed JSON
                     }
                 }
             }
 
             setStreamingMessage('');
-            setMessages(prev => [...prev, { type: 'ai', content: fullResponse }]);
+
+            // Add message with loading skeleton
+            const messageId = Date.now();
+            setMessages(prev => [...prev, {
+                type: 'ai',
+                content: fullResponse,
+                scores: { loading: true },
+                model: 'craig',
+                id: messageId
+            }]);
+
+            // Evaluate with W&B Weave asynchronously (with 1s skeleton delay)
+            const userQuestion = question; // Store for evaluation
+            setTimeout(() => {
+                evaluateWithWeave(userQuestion, fullResponse, 'craig', true).then(scores => {
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === messageId ? { ...msg, scores } : msg
+                    ));
+                });
+            }, 1000);
 
             // Convert text to speech and animate avatar
             if (fullResponse && talkingHeadRef.current) {
@@ -441,6 +562,20 @@ function App() {
         }
     };
 
+    // Log to Weave backend
+    const logToWeave = async (prompt, response, model, hasContext, scores) => {
+        try {
+            await fetch('/api/weave-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, response, model, hasContext, scores })
+            });
+            console.log('✓ Logged to Weave:', { model, overall: scores.overall });
+        } catch (error) {
+            console.warn('Weave logging failed:', error);
+        }
+    };
+
     return (
         <div className="container">
             <div className="avatar-section">
@@ -471,9 +606,9 @@ function App() {
                         <span
                             className={`status-indicator ${isConnected ? 'connected' : ''}`}
                         ></span>
-                        TalkingHead Chat
+                        Context-Aware AI Evaluation
                     </h1>
-                    <p>Quick web-based version to test the Ready Player Me + OpenAI integration locally.</p>
+                    <p>Comparing generic AI vs context-enriched responses with real-time scoring.</p>
 
                     <div className="model-switcher">
                         <label>
@@ -516,6 +651,39 @@ function App() {
                     {messages.map((message, index) => (
                         <div key={index} className={`message ${message.type}`}>
                             {message.content}
+                            {message.scores && (
+                                <div className="score-bubble">
+                                    {message.scores.loading ? (
+                                        <>
+                                            <div className="score-header">
+                                                {message.model === 'generic' ? 'Zero-Context Baseline' : 'Context-Enriched'}
+                                                <span className="overall-score skeleton">--/100</span>
+                                            </div>
+                                            <div className="score-metrics">
+                                                <span className="skeleton">CTX:--</span>
+                                                <span className="skeleton">EVD:--</span>
+                                                <span className="skeleton">SPC:--</span>
+                                                <span className="skeleton">AUT:--</span>
+                                            </div>
+                                        </>
+                                    ) : message.scores.error ? (
+                                        <div className="score-error">⚠ Weave offline</div>
+                                    ) : (
+                                        <>
+                                            <div className="score-header">
+                                                {message.model === 'generic' ? 'Zero-Context Baseline' : 'Context-Enriched'}
+                                                <span className="overall-score">{message.scores.overall}/100</span>
+                                            </div>
+                                            <div className="score-metrics">
+                                                <span title="Context Utilization">CTX:{message.scores.context}</span>
+                                                <span title="Evidence Density">EVD:{message.scores.evidence}</span>
+                                                <span title="Specificity">SPC:{message.scores.specificity}</span>
+                                                <span title="Emotional Authenticity">AUT:{message.scores.authenticity}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                     {streamingMessage && (

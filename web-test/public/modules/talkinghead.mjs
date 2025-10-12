@@ -4681,8 +4681,16 @@ class TalkingHead {
 
     // Reset IK setup positions and rotations
     const root = this.ikMesh.getObjectByName(ik.root);
-    root.position.setFromMatrixPosition( this.armature.getObjectByName(ik.root).matrixWorld );
-    root.quaternion.setFromRotationMatrix( this.armature.getObjectByName(ik.root).matrixWorld );
+    const armatureRoot = this.armature.getObjectByName(ik.root);
+
+    // Safety check: if bones don't exist (e.g., hands disabled), skip IK
+    if (!armatureRoot) {
+      // console.warn('IK bone not found in armature:', ik.root, '- skipping (expected for avatars without hands)');
+      return;
+    }
+
+    root.position.setFromMatrixPosition( armatureRoot.matrixWorld );
+    root.quaternion.setFromRotationMatrix( armatureRoot.matrixWorld );
     if ( target && relative ) {
       target.applyQuaternion(this.armature.quaternion).add( root.position );
     }

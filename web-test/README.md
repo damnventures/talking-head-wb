@@ -1,25 +1,37 @@
-# TalkBitch Web App - Vercel Deployment
 
-React-based web application with Ready Player Me avatars, OpenAI chat, and Craig Argue integration.
+# Context-Aware AI Evaluation Platform
 
-## 🚀 Quick Deploy to Vercel
+**Quantifying the value of personalized context in AI responses**
+
+This platform compares generic no-context AI models against context-enriched responses using the W&B Weave evaluation framework. It's built with Ready Player Me avatars, ElevenLabs TTS, and the Craig Argue API to visualize the differences in response quality.
+
+## Features
+
+-   **Avatar System**: Ready Player Me with facial animations and word-level lip-sync.
+-   **Dual Chat Modes**: Switch between a friendly AI and the argumentative "Craig" mode.
+-   **Voice Synthesis**: ElevenLabs TTS with millisecond-precision timing for realistic voice output.
+-   **API Proxy**: A Vercel serverless function (`/api/argue`) for seamless integration with the Craig API, avoiding CORS issues.
+-   **Mobile Responsive**: A touch-optimized interface for a great experience on any device.
+-   **W&B Weave Integration**: Deep evaluation of response quality with context tracking, helping you understand and improve your models.
+
+## Getting Started
+
+### 1. Deploy to Vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
 
-### Option 1: Deploy from GitHub
-1. Push this `web-test` folder to a GitHub repository
-2. Connect the repository to Vercel
-3. Deploy will automatically use `web-test` as the root directory
+You can deploy this project to Vercel in two ways:
 
-### Option 2: Deploy via Vercel CLI
-```bash
-cd web-test
-vercel --prod
-```
+*   **From GitHub**: Push the `web-test` folder to a GitHub repository, connect it to Vercel, and deploy.
+*   **Via Vercel CLI**:
+    ```bash
+    cd web-test
+    vercel --prod
+    ```
 
-## ⚙️ Environment Variables
+### 2. Set Environment Variables
 
-Set these in your Vercel dashboard under Settings → Environment Variables:
+In your Vercel dashboard, navigate to **Settings → Environment Variables** and add the following:
 
 ```bash
 # Required for production
@@ -27,16 +39,71 @@ VITE_OPENAI_API_KEY=sk-proj-your-openai-key-here
 VITE_ELEVENLABS_API_KEY=sk_your-elevenlabs-key-here
 ```
 
-## 🎯 Features
+### 3. Local Development
 
-- ✅ **Avatar System**: Ready Player Me with facial animations
-- ✅ **Dual Chat Modes**: Friendly AI + Craig (argumentative)
-- ✅ **Voice Synthesis**: ElevenLabs TTS integration
-- ✅ **API Proxy**: `/api/argue` endpoint for Craig integration
-- ✅ **CORS Resolved**: Server-side API proxy
-- ✅ **Mobile Responsive**: Touch-optimized interface
+To run the project locally, follow these steps:
 
-## 📁 Project Structure
+```bash
+npm install
+npm run dev
+```
+
+This will start a development server with hot-reloading at `http://localhost:3000`.
+
+For full feature parity with the production environment, you can use the Vercel CLI:
+
+```bash
+vercel dev --listen 3000
+```
+
+## W&B Weave Evaluation System
+
+This project uses Weights & Biases (W&B) Weave to evaluate and compare the response quality between the generic no-context AI model and Craig's context-enriched responses.
+
+### Key Evaluation Metrics
+
+*   **Context Utilization Score (0-100)**: Measures how effectively the response leverages personal context.
+*   **Evidence Density Score (0-100)**: Counts the number of specific citations and references.
+*   **Specificity Score (0-100)**: Measures the level of concrete details versus generic statements.
+*   **Emotional Authenticity Score (0-100)**: Assesses the genuineness of the voice and tone.
+*   **Factual Grounding Score (0-100)**: Verifies claims against source documents.
+
+### Setup and Usage
+
+1.  **Install W&B Weave**:
+    ```bash
+    pip install wandb weave
+    ```
+
+2.  **Log in to W&B**:
+    ```bash
+    wandb login
+    ```
+    You'll be prompted to enter your API key, which you can find at `https://wandb.ai/authorize`.
+
+3.  **Run Evaluations**:
+    ```bash
+    # Run the evaluation suite
+    python evaluate_responses.py --test-set controversial_topics.json
+
+    # Compare models side-by-side
+    python compare_models.py --prompt "What's the problem with immigration?" --capsule 68c32cf3735fb4ac0ef3ccbf
+    ```
+
+### Trace Visualization
+
+W&B Weave automatically logs the following for in-depth analysis:
+
+*   Input prompts
+*   Model responses
+*   Latency metrics
+*   Cost per request
+*   Score breakdowns
+*   Citation chains
+
+You can view the traces at: `https://wandb.ai/shrinked-ai/craig-evaluation/weave`
+
+## Project Structure
 
 ```
 web-test/
@@ -48,71 +115,16 @@ web-test/
 └── webpack.config.js       # Build configuration
 ```
 
-## 🔑 API Keys Required
+## Troubleshooting
 
-1. **OpenAI API Key**: For conversational AI
-   - Get from: https://platform.openai.com/
-   - Set as: `VITE_OPENAI_API_KEY`
-
-2. **ElevenLabs API Key**: For voice synthesis
-   - Get from: https://elevenlabs.io/
-   - Set as: `VITE_ELEVENLABS_API_KEY`
-
-3. **Craig Argue Key**: Already configured (`371266e010bcb7674532903e8678256a7d3292b3731a0dfba4ff6e2b6de5149b`)
-
-## 🎮 Usage
-
-### Friendly Chat Mode
-- Default conversational AI
-- Uses OpenAI GPT-4o
-- Natural, helpful responses
-
-### Craig Argue Mode
-- Toggle to "Argue" mode
-- Enter capsule ID: `68c32cf3735fb4ac0ef3ccbf`
-- Get John Oliver-style argumentative responses
-- Uses personal context from Signal app capsules
-
-## 📦 Local Development
-
-```bash
-npm install
-npm run build
-npm start
-# Opens http://localhost:3000
-```
-
-## 🌐 Production URL
-
-After deployment, your app will be available at:
-`https://your-project.vercel.app`
-
-## 🛠️ Troubleshooting
-
-### Build Issues
-- Ensure Node.js 18+ is installed
-- Check package.json dependencies
-- Verify API keys are set correctly
-
-### API Issues
-- `/api/argue` endpoint handles CORS automatically
-- Check Network tab for API call status
-- Verify Craig API key and capsule ID
-
-### Avatar Loading
-- Ready Player Me CDN may have occasional delays
-- Check browser console for WebGL errors
-- Ensure stable internet connection
-
-## 📋 Deployment Checklist
-
-- ✅ API keys configured in Vercel environment variables
-- ✅ Build completes successfully (`npm run build`)
-- ✅ Static assets serve correctly
-- ✅ `/api/argue` endpoint responds
-- ✅ Avatar loads and animates
-- ✅ Voice synthesis works (requires user interaction)
+*   **Build Issues**: Ensure you have Node.js 18+ installed and that your API keys are set correctly.
+*   **Evaluation Issues**: Check that your W&B API key is valid and that the Weave project is initialized correctly.
+*   **API Issues**: The `/api/argue` endpoint handles CORS automatically. Check the Network tab in your browser's developer tools for API call status.
+*   **Avatar & TTS**: Ready Player Me avatars require specific morph targets. The Web Audio API requires user interaction before audio can be played.
 
 ---
 
-**Note:** This is the web version of the TalkBitch Unity iOS app. The Unity version includes the same features optimized for mobile deployment via TestFlight.
+**Project:** Context-Aware AI Evaluation Platform
+**Organization:** Shrinked AI
+**W&B Dashboard:** `https://wandb.ai/shrinked-ai/craig-evaluation`
+**Documentation:** See [EVALUATION_PLAN.md](./EVALUATION_PLAN.md) for detailed metrics and implementation.
