@@ -40,7 +40,7 @@ function App() {
                         modelMovementFactor: 1,
                         modelRoot: "Hips", // Ready Player Me avatars use "Hips" as root
                         cameraView: 'upper', // Show upper body like the working example
-                        cameraDistance: 1.2,
+                        cameraDistance: 0.6, // Make model twice larger by reducing distance
                         cameraX: 0,
                         cameraY: 0.1,
                         cameraRotateEnable: true,
@@ -291,34 +291,54 @@ function App() {
                     const audioBuffer = await response.arrayBuffer();
 
                     // Try to use TalkingHead if available, otherwise just play audio
-                    if (talkingHeadRef.current && talkingHeadRef.current.speakAudio) {
+                    if (talkingHeadRef.current) {
                         try {
-                            // Convert ArrayBuffer to Web Audio API AudioBuffer
-                            const audioContext = talkingHeadRef.current.audioCtx || new AudioContext();
-                            const decodedAudioBuffer = await audioContext.decodeAudioData(audioBuffer.slice());
+                            console.log('TalkingHead available, attempting to speak with animation');
 
-                            // Create basic lip sync animation based on text words
-                            const words = text.split(' ');
-                            const duration = decodedAudioBuffer.duration * 1000; // Convert to ms
-                            const timePerWord = duration / words.length;
+                            // Create an HTML Audio element from the buffer
+                            const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+                            const audioUrl = URL.createObjectURL(audioBlob);
+                            const audio = new Audio(audioUrl);
 
-                            const lipsyncAnim = words.map((word, i) => ({
-                                start: i * timePerWord,
-                                end: (i + 1) * timePerWord,
-                                value: word
-                            }));
+                            // Load the audio
+                            audio.load();
 
-                            // Use speakAudio with decoded AudioBuffer and lip sync
-                            talkingHeadRef.current.speakAudio({
-                                audio: decodedAudioBuffer,
-                                words: words,
-                                wtimes: words.map((_, i) => i * timePerWord)
+                            // Create word timing for lip sync
+                            const words = text.split(/\s+/).filter(word => word.length > 0);
+
+                            // Estimate audio duration (will be updated when audio loads)
+                            let estimatedDuration = words.length * 0.5; // 0.5 seconds per word estimate
+
+                            audio.addEventListener('loadedmetadata', () => {
+                                const actualDuration = audio.duration;
+                                const timePerWord = actualDuration / words.length;
+
+                                console.log(`Audio duration: ${actualDuration}s, words: ${words.length}`);
+
+                                // Use speakAudio with proper format
+                                talkingHeadRef.current.speakAudio({
+                                    audio: audio,
+                                    words: words,
+                                    wtimes: words.map((_, i) => i * timePerWord * 1000) // Convert to ms
+                                });
+
+                                // Clean up URL and set talking state after duration
+                                setTimeout(() => {
+                                    URL.revokeObjectURL(audioUrl);
+                                    setIsTalking(false);
+                                }, actualDuration * 1000);
                             });
 
-                            // Set talking to false after audio duration
-                            setTimeout(() => setIsTalking(false), duration);
+                            audio.addEventListener('error', (e) => {
+                                console.error('Audio loading error:', e);
+                                URL.revokeObjectURL(audioUrl);
+                                // Fallback to just animation without high-quality audio
+                                talkingHeadRef.current.speakText(text);
+                                setIsTalking(false);
+                            });
+
                         } catch (error) {
-                            console.error('TalkingHead speakAudio failed:', error);
+                            console.error('TalkingHead animation failed:', error);
                             // Play audio without avatar animation
                             playAudioBuffer(audioBuffer, () => setIsTalking(false));
                         }
