@@ -54,6 +54,7 @@ function App() {
     const avatarContainerRef = useRef(null);
     const talkingHeadRef = useRef(null);
     const initializationRef = useRef(false);
+    const currentTTSAbortController = useRef(null); // Track current TTS session for interruption
 
     // Initialize TalkingHead system
     useEffect(() => {
@@ -595,6 +596,10 @@ function App() {
     const streamingSentenceTTS = async (fullText) => {
         if (!fullText || !talkingHeadRef.current) return;
 
+        // Create new abort controller for this TTS session
+        const abortController = new AbortController();
+        currentTTSAbortController.current = abortController;
+
         try {
             setIsTalking(true);
 
@@ -603,6 +608,12 @@ function App() {
             console.log(`Streaming ${sentences.length} sentences for TTS`);
 
             for (const sentence of sentences) {
+                // Check if this session was aborted
+                if (abortController.signal.aborted) {
+                    console.log('TTS interrupted - stopping playback');
+                    break;
+                }
+
                 const trimmed = sentence.trim();
                 if (!trimmed) continue;
 
@@ -622,6 +633,12 @@ function App() {
                 if (response.ok) {
                     const data = await response.json();
 
+                    // Check again before playing
+                    if (abortController.signal.aborted) {
+                        console.log('TTS interrupted - stopping before audio decode');
+                        break;
+                    }
+
                     // Convert base64 audio to ArrayBuffer
                     const binaryString = atob(data.audio);
                     const bytes = new Uint8Array(binaryString.length);
@@ -638,6 +655,12 @@ function App() {
                     // Decode and play audio with lip-sync
                     const decodedAudioBuffer = await talkingHeadRef.current.audioCtx.decodeAudioData(rawAudioBuffer);
 
+                    // Check one more time before playing
+                    if (abortController.signal.aborted) {
+                        console.log('TTS interrupted - stopping before playback');
+                        break;
+                    }
+
                     // Wait for current audio to finish before playing next sentence
                     await new Promise((resolve) => {
                         talkingHeadRef.current.speakAudio({
@@ -653,19 +676,48 @@ function App() {
                         // Fallback timeout in case onFinish doesn't fire
                         const duration = data.wtimes[data.wtimes.length - 1] + data.wdurations[data.wdurations.length - 1];
                         setTimeout(resolve, duration + 500);
+
+                        // Listen for abort signal during playback
+                        abortController.signal.addEventListener('abort', () => {
+                            console.log('TTS interrupted during playback - resolving immediately');
+                            resolve();
+                        });
                     });
                 }
             }
 
             setIsTalking(false);
         } catch (error) {
-            console.error('Streaming TTS error:', error);
+            if (error.name === 'AbortError' || abortController.signal.aborted) {
+                console.log('TTS session aborted');
+            } else {
+                console.error('Streaming TTS error:', error);
+            }
             setIsTalking(false);
         }
     };
 
     const speakWithAvatar = async (text) => {
         if (!text) return;
+
+        // INTERRUPT: Stop any previous TTS session
+        if (currentTTSAbortController.current) {
+            console.log('🛑 Interrupting previous TTS session');
+            currentTTSAbortController.current.abort();
+
+            // Stop TalkingHead animation and audio immediately
+            if (talkingHeadRef.current && talkingHeadRef.current.stopSpeaking) {
+                try {
+                    talkingHeadRef.current.stopSpeaking();
+                    console.log('✓ TalkingHead stopped');
+                } catch (e) {
+                    console.warn('Failed to stop TalkingHead:', e);
+                }
+            }
+
+            // Small delay to ensure cleanup
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
 
         try {
             setIsTalking(true);
