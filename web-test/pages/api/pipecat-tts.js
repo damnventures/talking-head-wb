@@ -43,11 +43,11 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         text: text,
-        model_id: 'eleven_monolingual_v1',
+        model_id: 'eleven_flash_v2_5', // Ultra-low latency ~75ms
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.8,
-          style: 0.2,
+          style: 0.0, // Flash model doesn't support style
           use_speaker_boost: true
         }
       })

@@ -426,14 +426,93 @@ function App() {
         });
     };
 
+    // Stream TTS for sentences as they arrive (reduces latency)
+    const streamingSentenceTTS = async (fullText) => {
+        if (!fullText || !talkingHeadRef.current) return;
+
+        try {
+            setIsTalking(true);
+
+            // Split text into sentences for streaming
+            const sentences = fullText.match(/[^.!?]+[.!?]+/g) || [fullText];
+            console.log(`Streaming ${sentences.length} sentences for TTS`);
+
+            for (const sentence of sentences) {
+                const trimmed = sentence.trim();
+                if (!trimmed) continue;
+
+                // Generate TTS for this sentence
+                const response = await fetch('/api/pipecat-tts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: trimmed,
+                        voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice
+                        apiKey: window.CONFIG.ELEVENLABS_API_KEY
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Convert base64 audio to ArrayBuffer
+                    const binaryString = atob(data.audio);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    const rawAudioBuffer = bytes.buffer;
+
+                    // Resume AudioContext if suspended
+                    if (talkingHeadRef.current.audioCtx?.state === 'suspended') {
+                        await talkingHeadRef.current.audioCtx.resume();
+                    }
+
+                    // Decode and play audio with lip-sync
+                    const decodedAudioBuffer = await talkingHeadRef.current.audioCtx.decodeAudioData(rawAudioBuffer);
+
+                    // Wait for current audio to finish before playing next sentence
+                    await new Promise((resolve) => {
+                        talkingHeadRef.current.speakAudio({
+                            audio: decodedAudioBuffer,
+                            words: data.words,
+                            wtimes: data.wtimes,
+                            wdurations: data.wdurations
+                        }, {
+                            lipsyncLang: 'en',
+                            onFinish: resolve
+                        });
+
+                        // Fallback timeout in case onFinish doesn't fire
+                        const duration = data.wtimes[data.wtimes.length - 1] + data.wdurations[data.wdurations.length - 1];
+                        setTimeout(resolve, duration + 500);
+                    });
+                }
+            }
+
+            setIsTalking(false);
+        } catch (error) {
+            console.error('Streaming TTS error:', error);
+            setIsTalking(false);
+        }
+    };
+
     const speakWithAvatar = async (text) => {
         if (!text) return;
 
         try {
             setIsTalking(true);
 
-            // Use Pipecat TTS endpoint if ElevenLabs is configured
+            // Use sentence-level streaming if ElevenLabs is configured
             if (window.CONFIG?.ELEVENLABS_API_KEY) {
+                await streamingSentenceTTS(text);
+                return;
+            }
+
+            // Fallback: Original full-text TTS (kept for reference)
+            if (false && window.CONFIG?.ELEVENLABS_API_KEY) {
                 // Use Pipecat TTS endpoint with word-level alignment
                 const response = await fetch('/api/pipecat-tts', {
                     method: 'POST',
