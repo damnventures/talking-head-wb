@@ -47,6 +47,7 @@ function App() {
     const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes&useHands=false&lod=0&textureSizeLimit=1024&textureFormat=png');
     const [aiModel, setAiModel] = useState('openai');
     const [streamingMessage, setStreamingMessage] = useState('');
+    const [craigStatus, setCraigStatus] = useState(''); // Loading status for Craig
     const [capsuleId, setCapsuleId] = useState('68c32cf3735fb4ac0ef3ccbf');
     const chatBoxRef = useRef(null);
     const avatarContainerRef = useRef(null);
@@ -173,7 +174,7 @@ function App() {
         if (chatBoxRef.current) {
             chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
         }
-    }, [messages, streamingMessage]);
+    }, [messages, streamingMessage, craigStatus]);
 
     const loadAvatar = async (url) => {
         if (!talkingHeadRef.current || !url) return;
@@ -310,6 +311,9 @@ function App() {
         }
 
         try {
+            // Status 1: Loading context
+            setCraigStatus('⟳ Fetching capsule context...');
+
             // Fetch context from capsule
             const contextResponse = await fetch(`https://api.shrinked.ai/capsules/${capsuleId}/context`, {
                 method: 'GET',
@@ -321,11 +325,18 @@ function App() {
             let context = 'NO_RELEVANT_CONTEXT';
             if (contextResponse.ok) {
                 context = await contextResponse.text();
+                const contextSizeKB = (context.length / 1024).toFixed(0);
+                setCraigStatus(`⟳ Context loaded (${contextSizeKB}KB) • Filtering...`);
+            } else {
+                setCraigStatus('⟳ No context • Generating response...');
             }
 
             // Get system prompt from our API
             const promptResponse = await fetch('/api/argue-prompt');
             const { prompt: systemPrompt } = await promptResponse.json();
+
+            // Status 2: Analyzing
+            setTimeout(() => setCraigStatus('⟳ AI analyzing context...'), 500);
 
             // Fetch directly from Craig worker (bypasses slow proxy)
             const workerUrl = 'https://craig-argue-machine.shrinked.workers.dev';
@@ -369,6 +380,10 @@ function App() {
                         const parsed = JSON.parse(line);
 
                         if (parsed.type === 'response' && parsed.content?.chat) {
+                            // Clear status when response starts streaming
+                            if (fullResponse.length === 0) {
+                                setCraigStatus('');
+                            }
                             fullResponse += parsed.content.chat;
                             setStreamingMessage(fullResponse);
                         }
@@ -379,6 +394,7 @@ function App() {
             }
 
             setStreamingMessage('');
+            setCraigStatus('');
 
             // Add message with loading skeleton
             const messageId = Date.now();
@@ -765,6 +781,11 @@ function App() {
                             )}
                         </div>
                     ))}
+                    {craigStatus && (
+                        <div className="message system" style={{fontFamily: 'monospace', fontSize: '13px'}}>
+                            {craigStatus}
+                        </div>
+                    )}
                     {streamingMessage && (
                         <div className="message ai">
                             {streamingMessage}
