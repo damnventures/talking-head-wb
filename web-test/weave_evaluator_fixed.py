@@ -35,8 +35,8 @@ async def context_utilization_scorer(question: str, output: dict) -> dict:
             }
         }
 
-    # Citations like [18], [41]-[48]
-    citations = re.findall(r'\[(\d+)\]', response_text)
+    # Citations like [18], [[38]], [41]-[48]
+    citations = re.findall(r'\[+(\d+)\]+', response_text)
     citations_score = min(len(citations) * 10, 50)
 
     # Proper names
@@ -70,7 +70,7 @@ async def evidence_density_scorer(question: str, output: dict) -> dict:
     """Count citations and statistics"""
     response_text = output.get('answer', '')
 
-    citations = re.findall(r'\[(\d+)\]', response_text)
+    citations = re.findall(r'\[+(\d+)\]+', response_text)
     statistics = re.findall(r'\b\d+(?:\.\d+)?(?:\s?%|,\d+)\b', response_text)
 
     score = min(len(citations) * 10 + len(statistics) * 5, 100)
