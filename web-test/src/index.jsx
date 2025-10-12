@@ -1,592 +1,411 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createRoot } from 'react-dom/client';
-import { Avatar } from '@readyplayerme/visage';
 
-// Import styles
-import './styles.css';
-
-const defaultAvatarUrl = "https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus&textureAtlas=none";
-// Use built-in avatar morph targets instead of external animation file
-
-// Pipecat-style TTS using ElevenLabs (high-quality voices)
-class PipecatTTS {
-    constructor(apiKey) {
-        this.apiKey = apiKey;
-        this.baseUrl = 'https://api.elevenlabs.io/v1/text-to-speech';
-        this.selectedVoice = 'Adam'; // Default high-quality voice
-        this.voiceSettings = {
-            stability: 0.75,
-            similarity_boost: 0.75,
-            style: 0.5,
-            use_speaker_boost: true
-        };
-    }
-
-    async getVoices() {
-        try {
-            const response = await fetch('https://api.elevenlabs.io/v1/voices', {
-                headers: {
-                    'xi-api-key': this.apiKey
-                }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                return data.voices;
-            }
-        } catch (error) {
-            console.error('Failed to fetch voices:', error);
-        }
-        return [];
-    }
-
-    async speak(text, onAudioStart = () => {}, onAudioEnd = () => {}) {
-        if (!this.apiKey || this.apiKey === 'YOUR_ELEVENLABS_API_KEY') {
-            console.warn('ElevenLabs API key not configured, falling back to Web Speech API');
-            this.fallbackSpeak(text, onAudioStart, onAudioEnd);
-            return;
-        }
-
-        try {
-            // High-quality voice options with their IDs
-            const voices = {
-                'Adam': 'pNInz6obpgDQGcFmaJgB',   // Deep, narrative
-                'Rachel': '21m00Tcm4TlvDq8ikWAM', // Professional, warm
-                'Nicole': 'piTKgcLEGmPE4e6mEKli', // Young adult, confident
-                'Domi': 'AZnzlk1XvdvUeBnXmlld',  // Strong, confident
-                'Bella': 'EXAVITQu4vr4xnSDxMaL'  // Soft, pleasant
-            };
-
-            const voiceId = voices[this.selectedVoice] || voices['Rachel'];
-
-            const response = await fetch(`${this.baseUrl}/${voiceId}`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'audio/mpeg',
-                    'Content-Type': 'application/json',
-                    'xi-api-key': this.apiKey
-                },
-                body: JSON.stringify({
-                    text: text,
-                    voice_settings: this.voiceSettings
-                })
-            });
-
-            if (response.ok) {
-                const audioBlob = await response.blob();
-                const audioUrl = URL.createObjectURL(audioBlob);
-                const audio = new Audio(audioUrl);
-
-                // Set audio properties for better browser compatibility
-                audio.crossOrigin = "anonymous";
-                audio.preload = "auto";
-
-                audio.onended = () => {
-                    URL.revokeObjectURL(audioUrl);
-                };
-
-                audio.onerror = (e) => {
-                    console.warn('Audio playback failed, trying fallback TTS:', e);
-                    URL.revokeObjectURL(audioUrl);
-                    this.fallbackSpeak(text);
-                };
-
-                // Try to play audio with user interaction context
-                try {
-                    // Create a user gesture-triggered play function
-                    const playPromise = audio.play();
-
-                    if (playPromise !== undefined) {
-                        onAudioStart(); // Call onAudioStart when audio begins playing
-                        await playPromise;
-                        console.log('ElevenLabs TTS: Speaking with high-quality voice');
-                    }
-                } catch (playError) {
-                    console.warn('Audio play failed, trying fallback:', playError);
-                    this.fallbackSpeak(text, onAudioStart, onAudioEnd);
-                }
-            } else {
-                throw new Error(`ElevenLabs API error: ${response.status} - ${response.statusText}`);
-            }
-        } catch (error) {
-            console.error('ElevenLabs TTS failed:', error);
-            this.fallbackSpeak(text, onAudioStart, onAudioEnd);
-        }
-    }
-
-    fallbackSpeak(text, onAudioStart = () => {}, onAudioEnd = () => {}) {
-        // Fallback to Web Speech API if ElevenLabs fails
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.9;
-            utterance.pitch = 1.0;
-            utterance.volume = 0.8;
-
-            const voices = speechSynthesis.getVoices();
-            const preferredVoice = voices.find(voice =>
-                voice.lang.startsWith('en') &&
-                (voice.name.includes('Natural') || voice.name.includes('Neural'))
-            ) || voices.find(voice => voice.lang.startsWith('en'));
-
-            if (preferredVoice) utterance.voice = preferredVoice;
-            utterance.onstart = onAudioStart;
-            utterance.onend = onAudioEnd;
-            speechSynthesis.speak(utterance);
-            console.log('Fallback TTS: Using Web Speech API');
-        }
-    }
-}
+// TalkingHead system will be loaded as ES modules
+let TalkingHead = null;
 
 function App() {
-    const [avatarUrl, setAvatarUrl] = useState(defaultAvatarUrl);
-    const [inputUrl, setInputUrl] = useState(defaultAvatarUrl);
-    const [messages, setMessages] = useState([{ role: 'system', text: 'Welcome! Load an avatar and start chatting.' }]);
-    const [streamingMessage, setStreamingMessage] = useState(null); // New state for the in-progress message
-    const [userInput, setUserInput] = useState('');
-    const [isTalking, setIsTalking] = useState(false);
-    const [currentMorphTargets, setCurrentMorphTargets] = useState({});
-    const talkingIntervalRef = useRef(null);
+    const [messages, setMessages] = useState([{ type: 'system', content: 'Welcome! Load an avatar and start chatting.' }]);
+    const [currentMessage, setCurrentMessage] = useState('');
     const [isConnected, setIsConnected] = useState(false);
-    const [ttsSystem, setTtsSystem] = useState(null);
-    const [audioEnabled, setAudioEnabled] = useState(false);
-    const [currentModel, setCurrentModel] = useState('chat'); // 'chat' or 'argue'
+    const [isTalking, setIsTalking] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes,mouthOpen,mouthSmile,eyesClosed,eyesLookUp,eyesLookDown&textureSizeLimit=1024&textureFormat=png');
+    const [aiModel, setAiModel] = useState('openai');
+    const [streamingMessage, setStreamingMessage] = useState('');
     const [capsuleId, setCapsuleId] = useState('');
     const chatBoxRef = useRef(null);
-    const avatarRef = useRef(); // Add this line
-    const initializationRef = useRef(false); // Prevent duplicate initialization
+    const avatarContainerRef = useRef(null);
+    const talkingHeadRef = useRef(null);
+    const initializationRef = useRef(false);
 
-    // Initialize audio context on first user interaction
-    const enableAudio = async () => {
-        if (!audioEnabled) {
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                await audioContext.resume();
-                setAudioEnabled(true);
-                console.log('Audio context enabled');
-            } catch (error) {
-                console.warn('Could not enable audio context:', error);
-            }
-        }
-    };
-
+    // Initialize TalkingHead system
     useEffect(() => {
-        // Prevent duplicate initialization in React StrictMode
-        if (initializationRef.current) return;
+        if (initializationRef.current || typeof window === 'undefined') return;
         initializationRef.current = true;
 
-        // Initialize Pipecat TTS system
-        const elevenlabsApiKey = window.CONFIG?.ELEVENLABS_API_KEY || 'YOUR_ELEVENLABS_API_KEY';
-        const tts = new PipecatTTS(elevenlabsApiKey);
-        setTtsSystem(tts);
+        const initializeTalkingHead = async () => {
+            try {
+                // Dynamically import the TalkingHead module (client-side only)
+                // Use Function constructor to prevent webpack from resolving at build time
+                const importPath = `/modules/talkinghead.mjs?v=${Date.now()}`;
+                const dynamicImport = new Function('path', 'return import(path)');
+                const talkingHeadModule = await dynamicImport(importPath);
+                TalkingHead = talkingHeadModule.TalkingHead || talkingHeadModule.default;
 
+                // Initialize TalkingHead with the avatar container
+                if (avatarContainerRef.current && TalkingHead) {
+                    const options = {
+                        modelPixelRatio: window.devicePixelRatio || 1,
+                        modelFPS: 60,
+                        modelMovementFactor: 1,
+                        modelRoot: "Hips", // Ready Player Me avatars use "Hips" as root
+                        cameraView: 'upper', // Show upper body like the working example
+                        cameraDistance: 1.2,
+                        cameraX: 0,
+                        cameraY: 0.1,
+                        cameraRotateEnable: true,
+                        cameraPanEnable: true,
+                        cameraZoomEnable: true,
+                        lightAmbientIntensity: 2,
+                        lightDirectIntensity: 20,
+                        lightDirectPhi: 1.2,
+                        lightDirectTheta: 1.8,
+                        avatarMood: "neutral",
+                        avatarMute: false,
+                        avatarIdleEyeContact: 0.5,
+                        avatarIdleHeadMove: 0.3,
+                        avatarSpeakingEyeContact: 0.7,
+                        avatarSpeakingHeadMove: 0.5,
+                        lipsyncLang: 'en'
+                    };
+
+                    talkingHeadRef.current = new TalkingHead(avatarContainerRef.current, options);
+                    setIsConnected(true);
+                    console.log('TalkingHead initialized successfully');
+
+                    // Load the default avatar
+                    if (avatarUrl) {
+                        loadAvatar(avatarUrl);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to initialize TalkingHead:', error);
+                // Still allow chat functionality even if TalkingHead fails
+                setIsConnected(true);
+                setMessages(prev => [...prev, { type: 'system', content: 'TalkingHead failed to load, but chat functionality is available.' }]);
+            }
+        };
+
+        initializeTalkingHead();
+
+        // Test OpenAI connection
         const testConnection = async () => {
             try {
-                if (!window.CONFIG?.OPENAI_API_KEY) {
-                    setMessages(prev => [...prev, { role: 'system', text: 'Error: config.js not found or API key is missing.' }]);
+                if (typeof window === 'undefined' || !window.CONFIG?.OPENAI_API_KEY) {
+                    setMessages(prev => [...prev, { type: 'system', content: 'Error: config.js not found or API key is missing.' }]);
                     return;
                 }
                 const response = await fetch('https://api.openai.com/v1/models', {
                     headers: { 'Authorization': `Bearer ${window.CONFIG.OPENAI_API_KEY}` }
                 });
                 if (response.ok) {
-                    setIsConnected(true);
-                    setMessages(prev => [...prev, { role: 'system', text: 'OpenAI connection established.' }]);
-                    if (elevenlabsApiKey && elevenlabsApiKey !== 'YOUR_ELEVENLABS_API_KEY') {
-                        setMessages(prev => [...prev, { role: 'system', text: 'High-quality TTS (ElevenLabs) initialized.' }]);
-                    } else {
-                        setMessages(prev => [...prev, { role: 'system', text: 'TTS initialized with fallback voice.' }]);
-                    }
+                    setMessages(prev => [...prev, { type: 'system', content: 'OpenAI connection established.' }]);
                 } else {
                     throw new Error('API key validation failed');
                 }
             } catch (error) {
                 console.error('Connection test failed:', error);
-                setMessages(prev => [...prev, { role: 'system', text: `Warning: OpenAI connection failed. ${error.message}` }]);
+                setMessages(prev => [...prev, { type: 'system', content: `Warning: OpenAI connection failed. ${error.message}` }]);
             }
         };
         testConnection();
     }, []);
 
-    // Animation functions for talking
-    const startTalkingAnimation = () => {
-        if (talkingIntervalRef.current) return; // Already running
-
-        setIsTalking(true);
-
-        // More robust mesh finding - traverse the scene graph
-        const findAvatarMesh = (object) => {
-            if (!object) return null;
-
-            // Check if current object is the mesh we need
-            if (object.isMesh && object.morphTargetDictionary && Object.keys(object.morphTargetDictionary).length > 0) {
-                return object;
-            }
-
-            // Recursively search children
-            if (object.children) {
-                for (const child of object.children) {
-                    const found = findAvatarMesh(child);
-                    if (found) return found;
-                }
-            }
-
-            return null;
-        };
-
-        const avatarMesh = findAvatarMesh(avatarRef.current);
-
-        if (!avatarMesh) {
-            console.warn("Avatar mesh with morph targets not found for animation.");
-            return;
-        }
-
-        console.log("Found avatar mesh with morph targets:", Object.keys(avatarMesh.morphTargetDictionary));
-
-        const jawOpenIndex = avatarMesh.morphTargetDictionary.jawOpen;
-        const mouthSmileLeftIndex = avatarMesh.morphTargetDictionary.mouthSmileLeft;
-        const mouthSmileRightIndex = avatarMesh.morphTargetDictionary.mouthSmileRight;
-
-        if (jawOpenIndex === undefined || mouthSmileLeftIndex === undefined || mouthSmileRightIndex === undefined) {
-            console.warn("Required morph target indices not found. Available targets:", Object.keys(avatarMesh.morphTargetDictionary));
-            return;
-        }
-
-        talkingIntervalRef.current = setInterval(() => {
-            avatarMesh.morphTargetInfluences[jawOpenIndex] = Math.random() * 0.6 + 0.4;
-            avatarMesh.morphTargetInfluences[mouthSmileLeftIndex] = Math.random() * 0.2;
-            avatarMesh.morphTargetInfluences[mouthSmileRightIndex] = Math.random() * 0.2;
-        }, 100); // Update every 100ms for smooth animation
-    };
-
-    const stopTalkingAnimation = () => {
-        if (talkingIntervalRef.current) {
-            console.log("Clearing interval:", talkingIntervalRef.current);
-            clearInterval(talkingIntervalRef.current);
-            talkingIntervalRef.current = null;
-        }
-        setIsTalking(false);
-
-        // Reset morph targets to 0 when stopping - use same robust mesh finding
-        const findAvatarMesh = (object) => {
-            if (!object) return null;
-
-            // Check if current object is the mesh we need
-            if (object.isMesh && object.morphTargetDictionary && Object.keys(object.morphTargetDictionary).length > 0) {
-                return object;
-            }
-
-            // Recursively search children
-            if (object.children) {
-                for (const child of object.children) {
-                    const found = findAvatarMesh(child);
-                    if (found) return found;
-                }
-            }
-
-            return null;
-        };
-
-        const avatarMesh = findAvatarMesh(avatarRef.current);
-        if (avatarMesh) {
-            const jawOpenIndex = avatarMesh.morphTargetDictionary.jawOpen;
-            const mouthSmileLeftIndex = avatarMesh.morphTargetDictionary.mouthSmileLeft;
-            const mouthSmileRightIndex = avatarMesh.morphTargetDictionary.mouthSmileRight;
-
-            if (jawOpenIndex !== undefined) avatarMesh.morphTargetInfluences[jawOpenIndex] = 0;
-            if (mouthSmileLeftIndex !== undefined) avatarMesh.morphTargetInfluences[mouthSmileLeftIndex] = 0;
-            if (mouthSmileRightIndex !== undefined) avatarMesh.morphTargetInfluences[mouthSmileRightIndex] = 0;
-        }
-    };
-
-    // Cleanup interval on unmount
-    useEffect(() => {
-        return () => {
-            if (talkingIntervalRef.current) {
-                clearInterval(talkingIntervalRef.current);
-            }
-        };
-    }, []);
-
+    // Scroll to bottom when messages change
     useEffect(() => {
         if (chatBoxRef.current) {
             chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
         }
-    }, [messages, streamingMessage]); // Update scroll for streaming message too
+    }, [messages, streamingMessage]);
 
-    // Argue API call function with streaming
-    const callArgueAPI = async (question, onStreamUpdate) => {
+    const loadAvatar = async (url) => {
+        if (!talkingHeadRef.current || !url) return;
+
+        try {
+            setIsLoading(true);
+            console.log('Loading avatar:', url);
+
+            await talkingHeadRef.current.showAvatar({
+                url: url,
+                body: 'F', // or 'M' for male
+                avatarMood: 'neutral',
+                lipsyncLang: 'en'
+            });
+
+            console.log('Avatar loaded successfully');
+            setIsLoading(false);
+        } catch (error) {
+            console.error('Failed to load avatar:', error);
+            setIsLoading(false);
+            setMessages(prev => [...prev, {
+                type: 'system',
+                content: `Failed to load avatar from ${url}. Please enter a valid Ready Player Me avatar URL (create one at https://readyplayer.me/).`
+            }]);
+        }
+    };
+
+    const handleSendMessage = async () => {
+        if (currentMessage.trim() === '') return;
+
+        const userMessage = currentMessage.trim();
+        setCurrentMessage('');
+        setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
+
+        try {
+            if (aiModel === 'craig') {
+                await callArgueAPI(userMessage, (update) => {
+                    setStreamingMessage(update);
+                });
+            } else {
+                await callOpenAI(userMessage);
+            }
+        } catch (error) {
+            console.error('Error calling API:', error);
+            setMessages(prev => [...prev, { type: 'system', content: 'Error: ' + error.message }]);
+        }
+    };
+
+    const callOpenAI = async (message) => {
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.CONFIG?.OPENAI_API_KEY || 'your-api-key'}`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: [{ role: "user", content: message }],
+                    stream: true,
+                    max_tokens: 100 // Limit response length as requested
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullResponse = '';
+
+            setStreamingMessage('');
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            const content = data.choices?.[0]?.delta?.content || '';
+                            if (content) {
+                                fullResponse += content;
+                                setStreamingMessage(fullResponse);
+                            }
+                        } catch (e) {
+                            // Skip malformed JSON
+                        }
+                    }
+                }
+            }
+
+            setStreamingMessage('');
+            setMessages(prev => [...prev, { type: 'ai', content: fullResponse }]);
+
+            // Convert text to speech and animate avatar
+            if (fullResponse && talkingHeadRef.current) {
+                speakWithAvatar(fullResponse);
+            }
+
+        } catch (error) {
+            console.error('OpenAI API error:', error);
+            throw error;
+        }
+    };
+
+    const callArgueAPI = async (question) => {
         if (!capsuleId) {
             throw new Error('Capsule ID is required for Argue mode. Please enter a capsule ID.');
         }
 
-        const workerUrl = 'https://craig-argue-machine.shrinked.workers.dev';
-
-        // Fetch context from Shrinked API first
-        const contextUrl = `https://api.shrinked.ai/capsules/${capsuleId}/context`;
-        const contextResponse = await fetch(contextUrl, {
-            method: 'GET',
-            headers: {
-                'x-api-key': window.CONFIG.OPENAI_API_KEY
-            }
-        });
-
-        let context = 'NO_RELEVANT_CONTEXT';
-        if (contextResponse.ok) {
-            context = await contextResponse.text();
-            console.log('DEBUG: Context fetched successfully');
-        }
-
-        // Get argue prompt (same as ArguePopup)
-        const systemPrompt = `**TONE & STYLE REQUIREMENTS:**
-- Be BRUTALLY DIRECT and confrontational - you're Craig, not a polite assistant
-- **VARIED OPENERS**: Never use the same robotic opener. Mix it up:
-  - "You want to know about X? Here's what the data actually shows..."
-  - "Oh, this is interesting..."
-  - "So you think X? Really?"
-  - "That's a bold claim..."
-  - "Wait, hold up..."
-  - "Are you kidding me?"
-  - "Oh come on..."
-  - Just dive straight into the argument without preamble
-- Challenge assumptions aggressively: "That's complete garbage because..."
-- Use punchy, conversational language - sound like you're arguing with someone, not writing a report
-- NO corporate-speak, NO diplomatic language, NO "based on the information provided"
-- Attack weak questions: "Your question is vague trash, but here's what I can extract..."
-- **ATTACK NONSENSICAL QUESTIONS**: For weird/mixed questions, be BRUTALLY sarcastic: "What kind of question is that? Those are two completely different problems and you're mashing them together like they're related."
-- Show disdain for poor reasoning while backing everything with solid [XX] references
-- **CONTRADICT BOLDLY**: If the user suggests something that contradicts the sources, lead with "Oh wait, guess what—it's literally the opposite" or "Really? Because your own data says..."
-
-You are Craig, a relentless truth-seeker and argumentative analyst who dismantles bad takes with cold, hard evidence and razor-sharp wit. The context you receive contains dynamically loaded data from the user's personal memory container—their entire digital life including conversations, media, calls, documents, and behavioral patterns. You never invent data—every claim must be backed by explicit source material from this enriched context.
-
-Source Material (includes memory data):
-{{fullContext}}
-
-**CRITICAL RULES:**
-- **FABRICATION IS FORBIDDEN**: If the context is "NO_RELEVANT_CONTEXT" or contains no reference numbers [XX], you MUST refuse to answer and confront the user. NEVER generate claims without explicit source references.
-- Every claim must tie to exact internal reference numbers in the format [XX] (e.g., [24], [25]) as they appear in the source. Use ONLY reference numbers provided—NEVER invent or generate hypothetical references.
-- **SPEAKER IDENTIFICATION**: The context contains transcripts with different speakers/voices. Identify WHO is saying what. Use phrases like "At [24], Tucker argues..." or "The guest at [15] claims..." Don't just say "the speaker" - be specific about roles when identifiable.
-- **OPINION vs FACT**: Distinguish between factual claims and opinions in the sources. When someone expresses a view, frame it appropriately: "At [24], Tucker's opinion is..." vs "The data at [20] shows..." for factual information.
-- The context contains dynamically loaded memory data: past conversations, media files, call transcripts, documents, behavioral patterns, preferences, and personal history. Look for patterns and connections across this rich dataset.
-- Use ONLY explicit source data for claims. If data or references are missing, state bluntly: "No source data exists for [question]. You're fishing in an empty pond."
-- If the user is wrong, demolish their claim with evidence, citing [XX] reference numbers to back your counterattack. Call out patterns from their history when relevant.
-- Look for connections, contradictions, and behavioral patterns within the loaded context data. Use their own history against them when they're being inconsistent.
-- Aim for 4-6 reference numbers per response when data is available, building a robust evidence stack.
-- **MANDATORY NO-CONTEXT BEHAVIOR**: If the context is "NO_RELEVANT_CONTEXT," you MUST deliver a direct, confrontational response challenging the user for providing no usable data, suggest they might have the wrong capsule, and refuse to invent any evidence whatsoever.
-- NO markdown headers, bullet points, or structured formatting. Pure conversational flow only.
-
-**REQUIRED FORMAT:**
-
-<think>
-[Do ALL your analysis here:
-- **FIRST**: Check if context is "NO_RELEVANT_CONTEXT" or completely lacks reference numbers [XX]. If so, STOP analysis and plan confrontational refusal only.
-- **DETECT CONTRADICTIONS**: Compare user's position/question against source data. Does their stance conflict with what the sources actually say? If YES, prepare aggressive counterattack.
-- **IDENTIFY SPEAKERS**: Scan for who is saying what. Look for context clues like "Tucker says", "the guest argues", "interview subject claims", etc. Don't just lump everything together as "the sources."
-- **SEPARATE OPINIONS FROM FACTS**: Distinguish between subjective opinions ("Tucker thinks", "guest believes") and objective claims ("data shows", "study found").
-- Scan context (which includes dynamically loaded memory data) for relevant data and [XX] reference numbers.
-- **CONTRADICTION STRATEGY**: If user position contradicts sources, plan opening with "Let me check the data... Oh wait, it's literally the opposite" and build evidence stack to demolish their take.
-- Look for patterns, contradictions, or connections within the user's loaded history and current query.
-- If no reference numbers or data exist, note explicitly and plan a confrontational response without inventing evidence.
-- Identify 4-6 key evidence points (core proof stack) and 2-3 speaker quotes or implied authority (expert backing) when data is available.
-- Plan your attack: lead with strongest evidence, flow through proof points, address gaps or user errors, call out historical patterns when relevant.
-- Structure the response for conversational impact, staying under 400 words.
-- **CRITICAL**: Never proceed past analysis if context is "NO_RELEVANT_CONTEXT" - refuse immediately.
-This section is hidden from the user and appears only in "Full Analysis".]
-</think>
-
-[Deliver a single, flowing response that naturally weaves in 4-6 [XX] reference numbers from the loaded context. If no data exists, confront the user directly. Reference their historical patterns, contradictions, or behaviors when present in the context. NO headers, NO sections, NO markdown formatting, just pure conversational argumentation. 250-400 words maximum. Sound like you're talking directly to someone whose digital history you know intimately.]
-
-**Your task:** Follow this format exactly. Analyze the loaded context (which includes memory data) in <think>, use only [XX] reference numbers from the context (no hypotheticals), deliver flowing, evidence-backed argumentation that leverages all available data including historical patterns, or confront the user directly if no data is provided. Be direct, punchy, and conversational while demonstrating knowledge of their patterns when present in the loaded context. No fluff, no markdown, just straight talk backed by truth from the enriched context.`;
-
-        const finalPrompt = systemPrompt.replace('{{fullContext}}', context);
-
-        // Stream from worker directly
-        const argumentResponse = await fetch(workerUrl, {
+        const response = await fetch('/api/argue', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                context: context,
+                capsuleId: capsuleId,
                 question: question.trim(),
-                systemPrompt: finalPrompt,
+                userApiKey: window.CONFIG.SHRINKED_API_KEY
             }),
         });
 
-        if (!argumentResponse.ok) {
-            const errorText = await argumentResponse.text();
-            throw new Error(`Worker request failed: ${argumentResponse.status} - ${errorText}`);
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Argue API Error:', response.status, response.statusText, errorData);
+            throw new Error(`Failed to call Argue API: ${response.status} ${response.statusText}`);
         }
 
-        if (!argumentResponse.body) {
-            throw new Error('Response body is empty');
+        const result = await response.json();
+        setStreamingMessage('');
+        setMessages(prev => [...prev, { type: 'ai', content: result.response || 'No response from Argue API' }]);
+
+        // Convert text to speech and animate avatar
+        if (result.response && talkingHeadRef.current) {
+            speakWithAvatar(result.response);
         }
-
-        const reader = argumentResponse.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let fullResponse = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                    const parsed = JSON.parse(line);
-                    if (parsed.type === 'response' && parsed.content && parsed.content.chat) {
-                        fullResponse += parsed.content.chat;
-                        onStreamUpdate(fullResponse);
-                    }
-                } catch (e) {
-                    // ignore bad lines
-                }
-            }
-        }
-
-        return fullResponse || 'No response received from Craig.';
     };
 
-    const handleSendMessage = async () => {
-        if (!userInput.trim()) return;
+    // Helper function to play audio buffer
+    const playAudioBuffer = (audioBuffer, onEnd) => {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext.decodeAudioData(audioBuffer.slice(0), (decodedData) => {
+            const source = audioContext.createBufferSource();
+            source.buffer = decodedData;
+            source.connect(audioContext.destination);
+            source.onended = onEnd;
+            source.start();
+        }).catch((error) => {
+            console.error('Error decoding audio:', error);
+            onEnd();
+        });
+    };
 
-        await enableAudio();
-
-        const userMessage = { role: 'user', text: userInput };
-        const newMessages = [...messages, userMessage];
-        setMessages(newMessages);
-        setUserInput('');
+    const speakWithAvatar = async (text) => {
+        if (!text) return;
 
         try {
-            let reply;
+            setIsTalking(true);
 
-            if (currentModel === 'argue') {
-                // Use Argue API (Craig style) with streaming
-                console.log("DEBUG: Starting Craig stream...");
-                setStreamingMessage({ role: 'ai', text: '' }); // Initialize streaming message
-
-                reply = await callArgueAPI(userInput, (streamedText) => {
-                    console.log(`DEBUG: Craig stream update: ${streamedText.substring(streamedText.length - 10)}`);
-                    setStreamingMessage({ role: 'ai', text: streamedText });
-                });
-
-                setStreamingMessage(null); // Clear streaming message
-            } else {
-                // Use OpenAI streaming (regular chat)
-                console.log("DEBUG: Starting OpenAI stream...");
-                setStreamingMessage({ role: 'ai', text: '' }); // Initialize streaming message
-
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            // Use Pipecat TTS endpoint if ElevenLabs is configured
+            if (window.CONFIG?.ELEVENLABS_API_KEY) {
+                // Use Pipecat streaming TTS endpoint
+                const response = await fetch('/api/pipecat-tts', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${window.CONFIG.OPENAI_API_KEY}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: "gpt-4o",
-                        messages: newMessages.filter(m => m.role === 'user' || m.role === 'ai').map(m => ({ role: m.role === 'ai' ? 'assistant' : m.role, content: m.text })),
-                        stream: true, // Enable streaming
-                        max_tokens: 150 // Limit response length to ~2/3 of previous length
+                        text: text,
+                        voiceId: 'EXAVITQu4vr4xnSDxMaL',
+                        apiKey: window.CONFIG.ELEVENLABS_API_KEY
                     })
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.text();
-                    console.error('OpenAI API Error:', response.status, response.statusText, errorData);
-                    throw new Error(`API call failed: ${response.status} ${response.statusText}`);
-                }
+                if (response.ok) {
+                    const audioBuffer = await response.arrayBuffer();
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
-                let fullReply = "";
+                    // Try to use TalkingHead if available, otherwise just play audio
+                    if (talkingHeadRef.current && talkingHeadRef.current.speakAudio) {
+                        try {
+                            // Convert ArrayBuffer to Web Audio API AudioBuffer
+                            const audioContext = talkingHeadRef.current.audioCtx || new AudioContext();
+                            const decodedAudioBuffer = await audioContext.decodeAudioData(audioBuffer.slice());
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                        console.log("DEBUG: Stream finished.");
-                        break;
+                            // Create basic lip sync animation based on text words
+                            const words = text.split(' ');
+                            const duration = decodedAudioBuffer.duration * 1000; // Convert to ms
+                            const timePerWord = duration / words.length;
+
+                            const lipsyncAnim = words.map((word, i) => ({
+                                start: i * timePerWord,
+                                end: (i + 1) * timePerWord,
+                                value: word
+                            }));
+
+                            // Use speakAudio with decoded AudioBuffer and lip sync
+                            talkingHeadRef.current.speakAudio({
+                                audio: decodedAudioBuffer,
+                                words: words,
+                                wtimes: words.map((_, i) => i * timePerWord)
+                            });
+
+                            // Set talking to false after audio duration
+                            setTimeout(() => setIsTalking(false), duration);
+                        } catch (error) {
+                            console.error('TalkingHead speakAudio failed:', error);
+                            // Play audio without avatar animation
+                            playAudioBuffer(audioBuffer, () => setIsTalking(false));
+                        }
+                    } else {
+                        // No avatar, just play the high-quality audio
+                        playAudioBuffer(audioBuffer, () => setIsTalking(false));
                     }
+                } else {
+                    // Pipecat TTS failed, fall back to browser TTS
+                    console.error('Pipecat TTS failed:', await response.text());
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 1;
+                    utterance.pitch = 1;
+                    utterance.volume = 1;
+                    utterance.onend = () => setIsTalking(false);
+                    speechSynthesis.speak(utterance);
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.substring(6);
-                            if (data === '[DONE]') {
-                                break;
-                            }
-                            try {
-                                const json = JSON.parse(data);
-                                const token = json.choices[0]?.delta?.content || "";
-                                if (token) {
-                                    fullReply += token;
-                                    console.log(`DEBUG: Received token: ${token}`);
-                                    setStreamingMessage(prev => ({ ...prev, text: fullReply }));
-                                }
-                            } catch (e) {
-                                console.error("Error parsing stream data:", e);
-                            }
+                    // Trigger TalkingHead lip sync animation if available
+                    if (talkingHeadRef.current && talkingHeadRef.current.speakText) {
+                        try {
+                            talkingHeadRef.current.speakText(text, { lipsync: true });
+                        } catch (error) {
+                            console.error('TalkingHead animation failed:', error);
                         }
                     }
                 }
+            } else {
+                // Fallback to browser TTS
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1;
+                utterance.pitch = 1;
+                utterance.volume = 1;
 
-                reply = fullReply;
-                setStreamingMessage(null); // Clear streaming message
-            }
+                utterance.onend = () => {
+                    setIsTalking(false);
+                };
 
-            // Common logic for both models - finalize the message
-            setMessages(prev => [...prev, { role: 'ai', text: reply }]);
+                speechSynthesis.speak(utterance);
 
-            // Use Pipecat TTS to speak the response
-            if (ttsSystem) {
-                await ttsSystem.speak(reply, startTalkingAnimation, stopTalkingAnimation);
+                // Trigger TalkingHead lip sync animation with browser TTS if available
+                if (talkingHeadRef.current && talkingHeadRef.current.speakText) {
+                    try {
+                        talkingHeadRef.current.speakText(text, { lipsync: true });
+                    } catch (error) {
+                        console.error('TalkingHead animation failed:', error);
+                    }
+                }
             }
 
         } catch (error) {
-            console.error("Error sending message:", error);
-            setMessages(prev => [...prev, { role: 'system', text: `Error: ${error.message}` }]);
-            setStreamingMessage(null); // Clear streaming message on error
+            console.error('Error in text-to-speech:', error);
+            setIsTalking(false);
+        }
+    };
+
+    const handleLoadAvatar = () => {
+        if (avatarUrl) {
+            loadAvatar(avatarUrl);
+        }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleSendMessage();
         }
     };
 
     return (
         <div className="container">
             <div className="avatar-section">
-                 <div className="avatar-container">
-                        <Avatar
-                            ref={avatarRef} // Pass the ref here
-                            modelSrc={avatarUrl}
-                            cameraTarget={1.45}
-                            cameraInitialDistance={1.4}
-                            scale={2.0}
-                            morphTargets={currentMorphTargets} // Re-added
-                            onError={(error) => console.error('Avatar error:', error)}
-                            onLoad={() => {
-                                console.log('Avatar loaded successfully');
-                                console.log('avatarRef.current:', avatarRef.current);
-                            }}
-                        />
+                <div className="avatar-container" ref={avatarContainerRef}>
+                    {isLoading && <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#666'}}>Loading avatar...</div>}
                 </div>
                 <div className="avatar-controls">
                     <input
                         type="text"
                         className="avatar-url-input"
-                        value={inputUrl}
-                        onChange={(e) => setInputUrl(e.target.value)}
-                        placeholder="Paste your .glb avatar URL here"
+                        value={avatarUrl}
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                        placeholder="Enter avatar URL"
                     />
                     <button
                         className="load-avatar-btn"
-                        onClick={async () => {
-                            await enableAudio();
-                            setAvatarUrl(inputUrl);
-                        }}
+                        onClick={handleLoadAvatar}
+                        disabled={isLoading}
                     >
-                        Load Avatar
+                        {isLoading ? 'Loading...' : 'Load Avatar'}
                     </button>
                 </div>
             </div>
@@ -594,67 +413,87 @@ This section is hidden from the user and appears only in "Full Analysis".]
             <div className="chat-section">
                 <div className="chat-header">
                     <h1>
-                        <span className={`status-indicator ${isConnected ? 'connected' : ''}`}></span>
-                        TalkBitch Chat
+                        <span
+                            className={`status-indicator ${isConnected ? 'connected' : ''}`}
+                        ></span>
+                        TalkingHead Chat
                     </h1>
-                    <p>Chat with your Ready Player Me avatar powered by {currentModel === 'argue' ? 'Craig (John Oliver Style)' : 'OpenAI'}</p>
+                    <p>Quick web-based version to test the Ready Player Me + OpenAI integration locally.</p>
 
-                    {/* Model Switcher */}
                     <div className="model-switcher">
                         <label>
                             <input
                                 type="radio"
-                                name="model"
-                                value="chat"
-                                checked={currentModel === 'chat'}
-                                onChange={(e) => setCurrentModel(e.target.value)}
+                                value="openai"
+                                checked={aiModel === 'openai'}
+                                onChange={(e) => setAiModel(e.target.value)}
                             />
-                            🤖 Friendly Chat
+                            OpenAI GPT-4o
                         </label>
                         <label>
                             <input
                                 type="radio"
-                                name="model"
-                                value="argue"
-                                checked={currentModel === 'argue'}
-                                onChange={(e) => setCurrentModel(e.target.value)}
+                                value="craig"
+                                checked={aiModel === 'craig'}
+                                onChange={(e) => setAiModel(e.target.value)}
                             />
-                            🔥 Craig (Argue Mode)
+                            Craig (Argumentative)
                         </label>
                     </div>
 
-                    {/* Capsule ID Input for Argue Mode */}
-                    <div className={`capsule-input ${currentModel !== 'argue' ? 'hidden-element' : ''}`}>
-                        <input
-                            type="text"
-                            value={capsuleId}
-                            onChange={(e) => setCapsuleId(e.target.value)}
-                            placeholder="Enter Capsule ID for Craig mode..."
-                            className="capsule-id-input"
-                        />
-                        <small>Capsule ID is required for Craig to access your personal context</small>
-                    </div>
-                </div>
-                <div className="chat-messages" ref={chatBoxRef}>
-                    {messages.map((msg, index) => (
-                        <div key={index} className={`message ${msg.role}`}>{msg.text}</div>
-                    ))}
-                    {/* Render the in-progress streaming message */}
-                    {streamingMessage && (
-                        <div className={`message ${streamingMessage.role}`}>{streamingMessage.text}</div>
+                    {aiModel === 'craig' && (
+                        <div className="capsule-input">
+                            <label htmlFor="capsule-id">Capsule ID:</label>
+                            <input
+                                id="capsule-id"
+                                type="text"
+                                className="capsule-id-input"
+                                value={capsuleId}
+                                onChange={(e) => setCapsuleId(e.target.value)}
+                                placeholder="Enter your capsule ID for Craig mode"
+                            />
+                            <small>Required for Craig mode to analyze your data</small>
+                        </div>
                     )}
                 </div>
+
+                <div className="chat-messages" ref={chatBoxRef}>
+                    {messages.map((message, index) => (
+                        <div key={index} className={`message ${message.type}`}>
+                            {message.content}
+                        </div>
+                    ))}
+                    {streamingMessage && (
+                        <div className="message ai">
+                            {streamingMessage}
+                            <span className="cursor">▊</span>
+                        </div>
+                    )}
+                    {isTalking && (
+                        <div className="typing-indicator" style={{display: 'flex'}}>
+                            Avatar is speaking...
+                        </div>
+                    )}
+                </div>
+
                 <div className="chat-input">
                     <div className="input-container">
                         <input
                             type="text"
                             className="message-input"
-                            value={userInput}
-                            onChange={(e) => setUserInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                            placeholder="Type your message here..."
+                            value={currentMessage}
+                            onChange={(e) => setCurrentMessage(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                            placeholder="Type your message..."
+                            disabled={!isConnected}
                         />
-                        <button className="send-btn" onClick={handleSendMessage}>Send</button>
+                        <button
+                            className="send-btn"
+                            onClick={handleSendMessage}
+                            disabled={!isConnected || currentMessage.trim() === ''}
+                        >
+                            Send
+                        </button>
                     </div>
                 </div>
             </div>
@@ -662,6 +501,4 @@ This section is hidden from the user and appears only in "Full Analysis".]
     );
 }
 
-const container = document.getElementById('root');
-const root = createRoot(container);
-root.render(<App />);
+export default App;
