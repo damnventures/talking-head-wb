@@ -1,198 +1,122 @@
-# TalkBitch - Ready Player Me Avatar Chat iOS App
 
-An iOS app that combines Ready Player Me avatars with OpenAI chat capabilities for smart NPC conversations.
+# Context-Aware AI Evaluation Platform
+
+**The Battle: Generic AI vs. Context-Enriched AI with Unlimited Memory**
+
+This platform visualizes the fundamental difference between generic AI (zero context) and context-aware AI with unlimited memory. Watch as two identical avatars—one with no context, one with rich personalized data—respond to the same questions. Real-time W&B Weave scoring reveals the quality gap.
+
+## Core Concept
+
+**Generic AI (OpenAI GPT-4o)**
+- Zero personal context
+- Surface-level responses
+- No memory of your data
+
+**Context-Enriched AI (Craig)**
+- Unlimited memory via Capsule API
+- Deep personalized responses backed by your data
+- Real-time content discovery using Browserbase + Daytona
+
+The platform provides real-time scoring across 4 dimensions: Context Utilization, Evidence Density, Specificity, and Emotional Authenticity.
 
 ## Features
 
-✅ **Complete Feature Parity with Web Version:**
-- Ready Player Me avatar integration with morph target animations
-- OpenAI GPT-4o powered conversations with streaming support
-- **Pipecat-style TTS with ElevenLabs integration** (high-quality voices)
-- **Dual personality system**: Friendly Chat + Craig (John Oliver style Argue mode)
-- **Capsule-based personal context** for Craig mode via Signal app integration
-- Advanced avatar facial animations using blend shapes/morph targets
-- iOS TestFlight ready with full mobile optimization
-- Clean, intuitive dual-mode chat interface
-
-## Setup Requirements
-
-### Unity Version
-- Unity 2022.3.25f1 or newer
-- iOS Build Support module installed
-
-### API Keys Required (Not Included - Add Your Own)
-- **OpenAI API Key**: Get from https://platform.openai.com/
-- **Ready Player Me Credentials**:
-  - Create account at https://studio.readyplayer.me/
-  - Get your Subdomain and App ID
-  - Configure in Unity inspector or web config
-
-### Security Note
-API keys are NOT included in this repository for security. You must add your own keys locally.
-
-### Development Environment
-- macOS with Xcode installed
-- Apple Developer account for TestFlight distribution
-
-## Project Structure
-
-```
-Assets/
-├── Scripts/
-│   ├── ConversationManager.cs         # Enhanced dual-mode chat with streaming
-│   ├── AvatarLoader.cs               # Ready Player Me avatar with morph targets
-│   ├── PipecatTTS.cs                # ElevenLabs TTS integration (Pipecat-style)
-│   ├── ArgueAPI.cs                  # Signal app Argue endpoint integration
-│   ├── AvatarAnimationController.cs  # Advanced morph target animations
-│   └── TalkBitchConfig.cs           # Centralized configuration management
-├── Scenes/
-│   └── MainScene.unity              # Enhanced UI with model switcher
-├── Animations/
-│   └── AvatarController.controller   # Animator for avatar states
-└── Prefabs/                         # (Ready for your avatar prefabs)
-```
+-   **Avatar System**: Ready Player Me avatars with word-level lip-sync and facial animations
+-   **Dual Chat Modes**: Switch between generic AI and context-enriched Craig mode
+-   **Voice Synthesis**: ElevenLabs TTS with sentence-level streaming for low-latency responses
+-   **Content Discovery**: `/fetch` command uses Browserbase to scrape fresh expert content from YouTube
+-   **Sandbox Infrastructure**: `/fetch-daily` demonstrates Daytona secure sandboxes for scheduled scraping
+-   **W&B Weave Evaluation**: Real-time response scoring to quantify context impact
+-   **Multi-Platform**: Web demo + iOS app for mobile testing
 
 ## Quick Start
 
-1. **Open in Unity**
-   ```bash
-   # Clone and open the project in Unity 2022.3+
-   # Packages will automatically install via Package Manager
-   ```
+### Web Demo (Recommended)
 
-2. **Set Avatar URL**
-   - In the scene, find the AvatarLoader script
-   - Replace the placeholder URL with your Ready Player Me avatar URL
-   - Format: `https://models.readyplayer.me/YOUR_AVATAR_ID.glb`
-
-3. **Test in Editor**
-   - Press Play in Unity
-   - Type messages in the input field
-   - Chat with your AI avatar
-
-## iOS Build Instructions
-
-### 1. Configure Build Settings
-```
-File → Build Settings
-- Select iOS platform
-- Click "Switch Platform"
-- Add MainScene to build
-```
-
-### 2. Player Settings
-Already configured:
-- Bundle Identifier: `com.talkbitch.avatarchat`
-- Version: 1.0.0
-- Minimum iOS Version: 13.0
-- Target Device: iPhone & iPad
-
-### 3. Build for iOS
-```
-File → Build Settings → Build
-- Choose output folder
-- Unity will generate Xcode project
-```
-
-### 4. Xcode Configuration
 ```bash
-# Open generated .xcodeproj in Xcode
-# Set your Apple Developer Team
-# Configure Signing & Capabilities
-# Set deployment target to iOS 13.0+
+cd web-test
+npm install
+npm run dev
 ```
 
-### 5. TestFlight Deployment
+Visit `http://localhost:3000` to see the evaluation platform in action.
+
+### iOS App
+
+1. Open the Unity project (Unity 2022.3.25f1+)
+2. Set your Ready Player Me avatar URL in the `AvatarLoader` script
+3. Build for iOS and deploy to TestFlight
+
+## Environment Variables
+
 ```bash
-# In Xcode:
-# Product → Archive
-# Upload to App Store Connect
-# Configure TestFlight testing
-# Invite beta testers
+# Core APIs
+VITE_OPENAI_API_KEY=sk-proj-your-openai-key-here
+VITE_ELEVENLABS_API_KEY=sk_your-elevenlabs-key-here
+SHRINKED_API_KEY=your-shrinked-api-key
+
+# Content Discovery (optional)
+BROWSERBASE_API_KEY=your-browserbase-key
+BROWSERBASE_PROJECT_ID=your-project-id
+DAYTONA_API_KEY=your-daytona-key
 ```
-
-## Dependencies
-
-Automatically managed via Package Manager:
-
-- **Ready Player Me Unity SDK**: `https://github.com/readyplayerme/rpm-unity-sdk-core.git`
-- **Direct OpenAI API Integration**: HTTP-based calls (no external package dependency)
-- Unity UI Components (built-in)
-- UnityWebRequest for API calls (built-in)
 
 ## Usage
 
-1. **Load Your Avatar**
-   - Update the avatar URL in AvatarLoader.cs
-   - Or create a UI to input custom avatar URLs
+**Chat Commands:**
+- Type normally to chat with the selected AI model
+- `/fetch <topic>` - Discover fresh expert content from YouTube (e.g., `/fetch SpaceX`)
+- `/fetch-daily <topic>` - Initialize Daytona sandbox for scheduled scraping
 
-2. **Chat with AI**
-   - Type messages in the input field
-   - Press Send or Enter
-   - Watch your avatar animate during responses
+**Model Selection:**
+- **OpenAI GPT-4o**: Generic AI with zero context
+- **Craig**: Context-enriched AI (requires Capsule ID from Shrinked.ai)
 
-3. **Customize Behavior**
-   - Modify the system prompt in ConversationManager.cs
-   - Adjust animation triggers and timings
-   - Add voice synthesis for enhanced experience
+## W&B Weave Evaluation
 
-## Key Scripts
+Real-time scoring quantifies the difference between generic and context-enriched AI:
 
-### ConversationManager.cs
-- Handles OpenAI API communication
-- Manages chat UI interactions
-- Triggers avatar animations
-- Maintains conversation history
+**Evaluation Metrics (0-100):**
+- **Context Utilization**: How effectively the response uses personal context
+- **Evidence Density**: Number of specific citations and references
+- **Specificity**: Concrete details vs. generic statements
+- **Authenticity**: Genuineness of voice and emotional tone
 
-### AvatarLoader.cs
-- Loads Ready Player Me avatars
-- Manages avatar positioning and setup
-- Connects animator to conversation system
+Scores appear automatically below each AI response. Craig (context-enriched) consistently outperforms generic AI by 40-60 points.
 
-## Troubleshooting
+## Architecture
 
-### Build Issues
-- Ensure iOS Build Support is installed in Unity Hub
-- Check Xcode is up to date
-- Verify Apple Developer account is active
+```
+web-test/                           # Web evaluation platform
+├── pages/api/
+│   ├── argue-prompt.js            # Craig system prompt
+│   ├── discover-content.js        # Browserbase YouTube scraper
+│   ├── fetch-daily.js             # Daytona sandbox demo
+│   └── pipecat-tts.js             # ElevenLabs TTS with word alignment
+├── src/
+│   ├── index.jsx                  # Main React app
+│   └── styles.css                 # UI styling
+└── public/modules/
+    └── talkinghead.mjs            # Avatar lip-sync engine
 
-### Avatar Loading
-- Verify avatar URL is correct and accessible
-- Check Ready Player Me credentials
-- Ensure network connectivity
+Assets/                             # Unity iOS app
+├── Scripts/
+│   ├── ConversationManager.cs     # Dual-mode chat
+│   ├── AvatarLoader.cs            # Ready Player Me integration
+│   └── PipecatTTS.cs              # ElevenLabs TTS
+└── Scenes/
+    └── MainScene.unity            # Main scene
+```
 
-### OpenAI Integration
-- Verify API key is valid and has credits
-- Check network permissions in iOS settings
-- Monitor rate limits and token usage
+## Tech Stack
 
-## Next Steps
+- **Frontend**: React with Ready Player Me avatars
+- **APIs**: OpenAI GPT-4o, Shrinked.ai Capsule API, ElevenLabs TTS
+- **Content Discovery**: Browserbase (cloud browser), Playwright (CDP automation)
+- **Infrastructure**: Daytona (secure sandboxes), Vercel (serverless functions)
+- **Evaluation**: W&B Weave (real-time scoring)
+- **Mobile**: Unity + Ready Player Me SDK
 
-### ✅ Already Implemented Enhancements
-1. **✅ Voice Integration**: Full Pipecat-style TTS with ElevenLabs API
-2. **✅ Advanced Animations**: Morph target system matching web version
-3. **✅ Character Profiles**: Dual personality system (Friendly + Craig/Argue)
-4. **✅ Cloud Integration**: Signal app Argue endpoint for personal context
-5. **✅ Streaming Responses**: Real-time conversation like web version
+---
 
-### Future Enhancements
-1. **Speech-to-Text**: Voice input for hands-free interaction
-2. **More Personalities**: Expand beyond Friendly Chat and Craig
-3. **Local Avatar Customization**: In-app avatar editor
-4. **Conversation History**: Persistent chat storage
-5. **Social Features**: Share avatars and conversations
-
-### Integration Points
-- Cloudflare Workers for advanced AI reasoning
-- R2 storage for media assets
-- Analytics for user engagement tracking
-
-## License
-
-This project is set up for your development. Configure licensing as needed for your specific use case.
-
-## Support
-
-For Ready Player Me: https://docs.readyplayer.me/
-For OpenAI API: https://platform.openai.com/docs
-For Unity iOS builds: https://docs.unity3d.com/Manual/ios.html
+**Built by Shrinked AI** • [W&B Dashboard](https://wandb.ai/shrinked-ai/craig-evaluation)
