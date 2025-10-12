@@ -9,7 +9,7 @@ function App() {
     const [isConnected, setIsConnected] = useState(false);
     const [isTalking, setIsTalking] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes&lod=0&textureSizeLimit=1024&textureFormat=png');
+    const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes&useHands=false&lod=0&textureSizeLimit=1024&textureFormat=png');
     const [aiModel, setAiModel] = useState('openai');
     const [streamingMessage, setStreamingMessage] = useState('');
     const [capsuleId, setCapsuleId] = useState('68c32cf3735fb4ac0ef3ccbf');
@@ -313,7 +313,7 @@ function App() {
 
             // Use Pipecat TTS endpoint if ElevenLabs is configured
             if (window.CONFIG?.ELEVENLABS_API_KEY) {
-                // Use Pipecat streaming TTS endpoint
+                // Use Pipecat TTS endpoint with word-level alignment
                 const response = await fetch('/api/pipecat-tts', {
                     method: 'POST',
                     headers: {
@@ -321,21 +321,66 @@ function App() {
                     },
                     body: JSON.stringify({
                         text: text,
-                        voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - Professional, warm female voice
+                        voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam - Deep, narrative male voice (realistic)
                         apiKey: window.CONFIG.ELEVENLABS_API_KEY
                     })
                 });
 
                 if (response.ok) {
-                    const audioBuffer = await response.arrayBuffer();
+                    const data = await response.json();
 
-                    // Always play audio first (never block audio)
-                    console.log('Playing high-quality ElevenLabs audio...');
-                    playAudioBuffer(audioBuffer, () => setIsTalking(false));
+                    // data contains: { audio: base64String, words: [], wtimes: [], wdurations: [] }
+                    console.log('ElevenLabs TTS with alignment:', {
+                        wordCount: data.words?.length,
+                        firstWords: data.words?.slice(0, 3)
+                    });
 
-                    // Skip animation for now since current avatar lacks proper blend shapes
-                    // The "Blend shapes not found" warning confirms this avatar doesn't support facial animation
-                    console.log('DEBUG: Animation skipped - avatar lacks blend shapes for facial animation');
+                    // Convert base64 audio to ArrayBuffer
+                    const binaryString = atob(data.audio);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    const rawAudioBuffer = bytes.buffer;
+
+                    // Use TalkingHead's speakAudio method with word-level timing (in milliseconds)
+                    if (talkingHeadRef.current && talkingHeadRef.current.speakAudio && data.words && data.wtimes) {
+                        try {
+                            // Resume AudioContext if suspended (browser requirement after user interaction)
+                            if (talkingHeadRef.current.audioCtx && talkingHeadRef.current.audioCtx.state === 'suspended') {
+                                console.log('Resuming Web Audio API...');
+                                await talkingHeadRef.current.audioCtx.resume();
+                            }
+
+                            // Decode MP3 audio to AudioBuffer for TalkingHead
+                            const decodedAudioBuffer = await talkingHeadRef.current.audioCtx.decodeAudioData(rawAudioBuffer);
+
+                            // TalkingHead.speakAudio expects:
+                            // { audio: AudioBuffer (decoded), words: string[], wtimes: number[], wdurations: number[] }
+                            // All times are in MILLISECONDS
+                            talkingHeadRef.current.speakAudio({
+                                audio: decodedAudioBuffer,
+                                words: data.words,
+                                wtimes: data.wtimes,  // Already in milliseconds from API
+                                wdurations: data.wdurations  // Already in milliseconds from API
+                            }, {
+                                lipsyncLang: 'en'  // Use English lip-sync processor
+                            });
+
+                            console.log('TalkingHead lip-sync animation started with precise timing');
+
+                            // Calculate total audio duration for setIsTalking timeout
+                            const totalDuration = data.wtimes[data.wtimes.length - 1] + data.wdurations[data.wdurations.length - 1];
+                            setTimeout(() => setIsTalking(false), totalDuration + 500);
+                        } catch (error) {
+                            console.error('TalkingHead speakAudio failed:', error);
+                            // Fallback: just play audio without animation
+                            playAudioBuffer(rawAudioBuffer, () => setIsTalking(false));
+                        }
+                    } else {
+                        console.warn('TalkingHead not available or missing timing data, playing audio without lip-sync');
+                        playAudioBuffer(rawAudioBuffer, () => setIsTalking(false));
+                    }
                 } else {
                     // Pipecat TTS failed, fall back to browser TTS
                     console.error('Pipecat TTS failed:', await response.text());
@@ -349,7 +394,7 @@ function App() {
                     // Trigger TalkingHead lip sync animation if available
                     if (talkingHeadRef.current && talkingHeadRef.current.speakText) {
                         try {
-                            talkingHeadRef.current.speakText(text, { lipsync: true });
+                            talkingHeadRef.current.speakText(text, { lipsyncLang: 'en' });
                         } catch (error) {
                             console.error('TalkingHead animation failed:', error);
                         }
@@ -371,7 +416,7 @@ function App() {
                 // Trigger TalkingHead lip sync animation with browser TTS if available
                 if (talkingHeadRef.current && talkingHeadRef.current.speakText) {
                     try {
-                        talkingHeadRef.current.speakText(text, { lipsync: true });
+                        talkingHeadRef.current.speakText(text, { lipsyncLang: 'en' });
                     } catch (error) {
                         console.error('TalkingHead animation failed:', error);
                     }

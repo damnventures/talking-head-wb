@@ -1207,7 +1207,8 @@ class TalkingHead {
       if ( !gltf.scene.getObjectByName(x) ) {
         // For head-only avatars, warn but don't error for missing body bones
         if (bodyBones.includes(x)) {
-          console.warn('Avatar body bone ' + x + ' not found (expected for head-only avatars)');
+          // Suppress spammy warnings for missing body bones in half-body avatars
+          // console.warn('Avatar body bone ' + x + ' not found (expected for head-only avatars)');
         } else {
           throw new Error('Avatar object ' + x + ' not found');
         }
@@ -1240,9 +1241,9 @@ class TalkingHead {
     this.animations = gltf.animations;
     this.userData = gltf.userData;
 
-    // Morph targets
+    // Morph targets - traverse entire scene to find all meshes with morph targets
     this.morphs = [];
-    this.armature.traverse( x => {
+    gltf.scene.traverse( x => {
       if ( x.morphTargetInfluences && x.morphTargetInfluences.length &&
         x.morphTargetDictionary ) {
         this.morphs.push(x);
@@ -1253,10 +1254,24 @@ class TalkingHead {
     });
     if ( this.morphs.length === 0 ) {
       console.warn('Blend shapes not found - facial animations and lip sync will be limited');
+      console.log('Avatar GLB URL:', avatar.url);
+      console.log('Scene children:', gltf.scene.children.map(c => c.name + ' (type: ' + c.type + ')'));
+      // Check all meshes for morph targets
+      gltf.scene.traverse((child) => {
+        if (child.isMesh && child.morphTargetDictionary) {
+          console.log('Found mesh with morphs:', child.name, 'Morph count:', Object.keys(child.morphTargetDictionary).length);
+          console.log('Available morphs:', Object.keys(child.morphTargetDictionary).slice(0, 10));
+        }
+      });
       // Create a dummy morph for basic functionality
       this.morphs.push({
         morphTargetInfluences: [],
         morphTargetDictionary: {}
+      });
+    } else {
+      console.log('Blend shapes found! Count:', this.morphs.length);
+      this.morphs.forEach((m, i) => {
+        console.log(`Morph ${i}:`, Object.keys(m.morphTargetDictionary).length, 'targets');
       });
     }
 
@@ -1323,7 +1338,7 @@ class TalkingHead {
       if (o && o[ids[1]]) {
         this.poseAvatar.props[x] = o[ids[1]];
       } else {
-        console.warn('Skipping pose property', x, '- bone not found in head-only avatar');
+        // console.warn('Skipping pose property', x, '- bone not found in head-only avatar');
         return; // Skip this property
       }
       if ( this.poseBase.props.hasOwnProperty(x) ) {
@@ -1349,7 +1364,7 @@ class TalkingHead {
         if (targetBone) {
           x.position.copy( targetBone.position );
         } else {
-          console.warn('IK bone not found in armature:', x.name);
+          // console.warn('IK bone not found in armature:', x.name);
         }
       }
     });

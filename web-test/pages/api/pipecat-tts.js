@@ -1,4 +1,4 @@
-// Pipecat TTS API endpoint for ElevenLabs streaming
+// Pipecat TTS API endpoint for ElevenLabs with word-level timing alignment
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { text, voiceId = '21m00Tcm4TlvDq8ikWAM' } = req.body; // Rachel - Professional, warm female voice
+    const { text, voiceId = 'pNInz6obpgDQGcFmaJgB' } = req.body; // Adam - Deep, narrative male voice (realistic)
 
     if (!text) {
       res.status(400).json({ error: 'Text is required' });
@@ -33,11 +33,11 @@ export default async function handler(req, res) {
 
     console.log('Pipecat TTS request:', { text: text.substring(0, 50) + '...', voiceId });
 
-    // Stream TTS from ElevenLabs
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
+    // Use ElevenLabs /text-to-speech-with-timestamps endpoint for alignment data
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`, {
       method: 'POST',
       headers: {
-        'Accept': 'audio/mpeg',
+        'Accept': 'application/json',
         'Content-Type': 'application/json',
         'xi-api-key': ELEVENLABS_API_KEY
       },
@@ -60,29 +60,63 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Set headers for audio streaming
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Transfer-Encoding', 'chunked');
+    const data = await response.json();
 
-    // Pipe the audio stream directly to the client
-    const reader = response.body.getReader();
+    // Extract audio and alignment data
+    // ElevenLabs returns: { audio_base64, alignment: { characters, character_start_times_seconds, character_end_times_seconds } }
+    const audioBuffer = Buffer.from(data.audio_base64, 'base64');
+    const alignment = data.alignment;
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    // Convert character-level timestamps to word-level timestamps in milliseconds
+    const words = [];
+    const wtimes = []; // Start times in milliseconds
+    const wdurations = []; // Durations in milliseconds
 
-        // Write chunk to response
-        res.write(Buffer.from(value));
+    if (alignment && alignment.characters && alignment.character_start_times_seconds) {
+      let currentWord = '';
+      let wordStartTime = null;
+
+      for (let i = 0; i < alignment.characters.length; i++) {
+        const char = alignment.characters[i];
+        const startTime = alignment.character_start_times_seconds[i] * 1000; // Convert to ms
+        const endTime = alignment.character_end_times_seconds[i] * 1000; // Convert to ms
+
+        // Check if character is a word boundary (space or punctuation)
+        if (char === ' ' || char === '.' || char === ',' || char === '!' || char === '?') {
+          if (currentWord.length > 0) {
+            words.push(currentWord);
+            wtimes.push(wordStartTime);
+            wdurations.push(startTime - wordStartTime); // Duration from word start to current position
+            currentWord = '';
+            wordStartTime = null;
+          }
+        } else {
+          if (wordStartTime === null) {
+            wordStartTime = startTime;
+          }
+          currentWord += char;
+        }
       }
-      res.end();
-    } catch (streamError) {
-      console.error('Stream error:', streamError);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Streaming failed' });
+
+      // Add the last word if exists
+      if (currentWord.length > 0 && wordStartTime !== null) {
+        words.push(currentWord);
+        wtimes.push(wordStartTime);
+        const lastEndTime = alignment.character_end_times_seconds[alignment.characters.length - 1] * 1000;
+        wdurations.push(lastEndTime - wordStartTime);
       }
     }
+
+    console.log('Generated word alignment:', { wordCount: words.length, words: words.slice(0, 5) });
+
+    // Return JSON with audio and alignment data for TalkingHead
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+      audio: audioBuffer.toString('base64'), // Base64 encoded audio
+      words: words,
+      wtimes: wtimes, // Milliseconds
+      wdurations: wdurations // Milliseconds
+    });
 
   } catch (error) {
     console.error('Pipecat TTS error:', error);
