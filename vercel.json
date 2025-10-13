@@ -4,10 +4,6 @@
     {
       "src": "web-test/package.json",
       "use": "@vercel/next"
-    },
-    {
-      "src": "api/evaluate.py",
-      "use": "@vercel/python"
     }
   ],
   "routes": [
