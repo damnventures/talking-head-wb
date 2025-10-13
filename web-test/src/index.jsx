@@ -177,10 +177,21 @@ function App() {
             }]);
         };
 
-        testConnection();
-        testElevenLabs();
-        initWeave();
-        initInfrastructure();
+        // Wait for config to load before running tests
+        const handleConfigLoaded = () => {
+            testConnection();
+            testElevenLabs();
+            initWeave();
+            initInfrastructure();
+        };
+
+        // Check if config is already loaded
+        if (window.CONFIG) {
+            handleConfigLoaded();
+        } else {
+            // Wait for config-loaded event
+            window.addEventListener('config-loaded', handleConfigLoaded);
+        }
 
         // Listen for Ready Player Me avatar creation events
         const handleAvatarCreated = (event) => {
@@ -197,6 +208,7 @@ function App() {
 
         return () => {
             window.removeEventListener('message', handleAvatarCreated);
+            window.removeEventListener('config-loaded', handleConfigLoaded);
         };
     }, []);
 
