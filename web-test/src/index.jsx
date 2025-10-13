@@ -926,9 +926,9 @@ function App() {
                         <div className="avatar-creator-content" onClick={(e) => e.stopPropagation()}>
                             <button className="close-modal-btn" onClick={() => setShowAvatarCreator(false)}>×</button>
                             <iframe
-                                src="https://demo.readyplayer.me/avatar?frameApi&bodyType=halfbody"
+                                src={`https://${window.CONFIG?.RPM_SUBDOMAIN || 'demo'}.readyplayer.me/avatar?frameApi&bodyType=halfbody&quickStart=false`}
                                 className="avatar-creator-iframe"
-                                allow="camera *; microphone *"
+                                allow="camera *; microphone *; clipboard-write"
                             />
                         </div>
                     </div>
