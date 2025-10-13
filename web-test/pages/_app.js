@@ -1,13 +1,28 @@
 import '../src/styles.css'
 import Script from 'next/script'
+import { useEffect } from 'react'
 
 export default function App({ Component, pageProps }) {
+  useEffect(() => {
+    // Load config from API (environment variables)
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(config => {
+        window.CONFIG = config;
+        console.log('✓ Config loaded from environment variables');
+      })
+      .catch(err => {
+        console.error('Failed to load config:', err);
+        // Fallback: try loading from static config.js (local development)
+        const script = document.createElement('script');
+        script.src = '/config.js';
+        script.onerror = () => console.warn('⚠ No config available - using defaults');
+        document.head.appendChild(script);
+      });
+  }, []);
+
   return (
     <>
-      <Script
-        src="/config.js"
-        strategy="beforeInteractive"
-      />
       <Script
         id="importmap"
         type="importmap"
