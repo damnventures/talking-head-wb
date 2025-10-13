@@ -6,7 +6,7 @@ let TalkingHead = null;
 // Call W&B Weave Evaluation API
 const evaluateWithWeave = async (question, response, model, hasContext) => {
     try {
-        const res = await fetch('http://localhost:8080/', {
+        const res = await fetch('/api/evaluate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

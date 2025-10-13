@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "web-test/package.json",
+      "use": "@vercel/next"
+    },
+    {
+      "src": "api/evaluate.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/web-test/$1"
+    }
+  ]
+}
