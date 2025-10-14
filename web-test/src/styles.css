@@ -49,9 +49,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transform: scale(2.0) translateY(-30px);
+    transform: scale(1.0) translateY(0);
     transform-origin: center center;
-    animation: avatarZoomIn 1s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+    opacity: 0.5;
+    animation: avatarZoomIn 1s cubic-bezier(0.4, 0.0, 0.2, 1) 3s forwards;
 }
 .avatar-controls {
     display: flex;
