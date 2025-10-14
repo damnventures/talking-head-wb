@@ -10,13 +10,20 @@ export default function App({ Component, pageProps }) {
       .then(config => {
         window.CONFIG = config;
         console.log('✓ Config loaded from environment variables');
+        // Dispatch event to notify components that config is ready
+        window.dispatchEvent(new Event('config-loaded'));
       })
       .catch(err => {
         console.error('Failed to load config:', err);
         // Fallback: try loading from static config.js (local development)
         const script = document.createElement('script');
         script.src = '/config.js';
-        script.onerror = () => console.warn('⚠ No config available - using defaults');
+        script.onload = () => window.dispatchEvent(new Event('config-loaded'));
+        script.onerror = () => {
+          console.warn('⚠ No config available - using defaults');
+          window.CONFIG = {}; // Empty config
+          window.dispatchEvent(new Event('config-loaded'));
+        };
         document.head.appendChild(script);
       });
   }, []);

@@ -577,8 +577,9 @@ label {
         opacity: 1; /* Override animation opacity for mobile */
     }
 
+    /* Hide avatar controls on mobile */
     .avatar-controls {
-        display: none; /* Hide controls on mobile to avoid overlap with avatar */
+        display: none;
     }
 
     /* Chat overlay - collapsed by default */
@@ -589,17 +590,17 @@ label {
         width: 100vw;
         height: auto;
         z-index: 10;
-        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-        background: transparent; /* Transparent when collapsed */
+        transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        background: transparent;
         border-radius: 0;
-        box-shadow: none; /* No shadow when collapsed */
-        transform: translateY(calc(100% - 80px)); /* Only show input box */
+        box-shadow: none;
+        transform: translateY(calc(100% - 90px)); /* Only show input box - matches expanded padding */
     }
 
     .chat-section.expanded {
         transform: translateY(0);
         height: 90vh;
-        background: white; /* White background when expanded */
+        background: white;
         border-radius: 20px 20px 0 0;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
     }
@@ -607,6 +608,20 @@ label {
     /* Hide swipe handle on mobile - full screen swipe instead */
     .mobile-chat-toggle {
         display: none;
+    }
+
+    /* Mobile avatar controls - only show when expanded */
+    .mobile-avatar-controls {
+        display: none;
+    }
+
+    .chat-section.expanded .mobile-avatar-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
     }
 
     /* Hide header and messages when collapsed */
@@ -645,9 +660,9 @@ label {
     }
 
     .chat-input {
-        padding: 10px;
-        background: #f8f9fa; /* Same background as desktop */
-        border-top: 1px solid #e9ecef;
+        padding: 20px;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef; /* Same border in both states */
     }
 
     .message-input {

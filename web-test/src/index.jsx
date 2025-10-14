@@ -1075,6 +1075,31 @@ function App() {
                         className="mobile-chat-toggle"
                         onClick={() => setIsChatExpanded(!isChatExpanded)}
                     ></div>
+
+                    {/* Mobile avatar controls - only show when expanded */}
+                    <div className="mobile-avatar-controls">
+                        <input
+                            type="text"
+                            className="avatar-url-input"
+                            value={avatarUrl}
+                            onChange={(e) => setAvatarUrl(e.target.value)}
+                            placeholder="Enter avatar URL"
+                        />
+                        <button
+                            className="load-avatar-btn"
+                            onClick={handleLoadAvatar}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? 'Loading...' : 'Load Avatar'}
+                        </button>
+                        <button
+                            className="create-avatar-btn"
+                            onClick={handleCreateAvatar}
+                        >
+                            Create New Avatar
+                        </button>
+                    </div>
+
                     <h1>
                         <span
                             className={`status-indicator ${isConnected ? 'connected' : ''}`}
