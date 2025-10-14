@@ -665,11 +665,15 @@ label {
         display: none !important;
     }
 
+    /* Hide model switcher and capsule input on mobile (now in settings) */
+    .model-switcher,
+    .capsule-input {
+        display: none !important;
+    }
+
     /* Hide header and messages when collapsed */
     .chat-section:not(.expanded) .chat-header h1,
     .chat-section:not(.expanded) .chat-header p,
-    .chat-section:not(.expanded) .model-switcher,
-    .chat-section:not(.expanded) .capsule-input,
     .chat-section:not(.expanded) .chat-messages {
         display: none;
     }
