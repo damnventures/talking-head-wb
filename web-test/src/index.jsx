@@ -1191,6 +1191,7 @@ function App() {
 
             <div
                 className={`chat-section ${isChatExpanded ? 'expanded' : ''}`}
+                style={showMobileSettings ? {display: 'none'} : {}}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
