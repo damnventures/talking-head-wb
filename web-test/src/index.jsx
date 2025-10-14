@@ -942,20 +942,29 @@ function App() {
     // Mobile swipe handlers
     const touchStartY = useRef(0);
     const touchEndY = useRef(0);
+    const touchStartTime = useRef(0);
 
     const handleTouchStart = (e) => {
         touchStartY.current = e.touches[0].clientY;
+        touchStartTime.current = Date.now();
     };
 
     const handleTouchMove = (e) => {
         touchEndY.current = e.touches[0].clientY;
+        // Prevent default scroll behavior only on the toggle element
+        if (e.currentTarget.className.includes('mobile-chat-toggle')) {
+            e.preventDefault();
+        }
     };
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e) => {
         const swipeDistance = touchStartY.current - touchEndY.current;
+        const swipeDuration = Date.now() - touchStartTime.current;
         const minSwipeDistance = 50; // Minimum swipe distance in pixels
+        const maxSwipeDuration = 500; // Maximum duration in ms for a swipe
 
-        if (Math.abs(swipeDistance) > minSwipeDistance) {
+        // Only toggle if it's a quick swipe gesture
+        if (Math.abs(swipeDistance) > minSwipeDistance && swipeDuration < maxSwipeDuration) {
             if (swipeDistance > 0) {
                 // Swipe up - expand chat
                 setIsChatExpanded(true);
@@ -1024,15 +1033,13 @@ function App() {
             </div>
 
             <div className={`chat-section ${isChatExpanded ? 'expanded' : ''}`}>
-                <div
-                    className="chat-header"
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                >
+                <div className="chat-header">
                     <div
                         className="mobile-chat-toggle"
                         onClick={() => setIsChatExpanded(!isChatExpanded)}
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
                     ></div>
                     <h1>
                         <span

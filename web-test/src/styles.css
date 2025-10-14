@@ -569,6 +569,7 @@ label {
         margin-bottom: 0;
         transform: scale(1.5) translateY(-10px);
         animation: none;
+        opacity: 1; /* Override animation opacity for mobile */
     }
 
     .avatar-controls {
@@ -609,12 +610,13 @@ label {
         border-radius: 3px;
         margin: 10px auto 5px;
         cursor: pointer;
+        touch-action: pan-y; /* Allow vertical swipe, prevent other gestures */
+        user-select: none; /* Prevent text selection during swipe */
+        -webkit-user-select: none;
     }
 
     .chat-header {
         padding: 10px 15px 5px;
-        touch-action: none;
-        cursor: pointer;
     }
 
     .chat-header h1 {
