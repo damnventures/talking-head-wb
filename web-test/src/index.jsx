@@ -74,18 +74,21 @@ function App() {
 
                 // Initialize TalkingHead with the avatar container
                 if (avatarContainerRef.current && TalkingHead) {
+                    // Detect mobile for performance optimization
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
                     const options = {
-                        modelPixelRatio: window.devicePixelRatio || 1,
-                        modelFPS: 60,
+                        modelPixelRatio: isMobile ? 1 : (window.devicePixelRatio || 1), // Force 1x on mobile
+                        modelFPS: isMobile ? 30 : 60, // Lower FPS on mobile to prevent crashes
                         modelMovementFactor: 1,
                         modelRoot: "Hips", // Ready Player Me avatars use "Hips" as root
                         cameraView: 'upper', // Show upper body like the working example
-                        cameraDistance: 0.8,
+                        cameraDistance: isMobile ? 0.5 : 0.8, // Closer camera on mobile for larger avatar
                         cameraX: 0,
-                        cameraY: 0.1,
-                        cameraRotateEnable: true,
-                        cameraPanEnable: true,
-                        cameraZoomEnable: true,
+                        cameraY: isMobile ? 0 : 0.1, // Centered on mobile
+                        cameraRotateEnable: !isMobile, // Disable camera controls on mobile
+                        cameraPanEnable: !isMobile,
+                        cameraZoomEnable: !isMobile,
                         lightAmbientIntensity: 2,
                         lightDirectIntensity: 20,
                         lightDirectPhi: 1.2,
@@ -99,7 +102,31 @@ function App() {
                         lipsyncLang: 'en'
                     };
 
+                    console.log('Initializing TalkingHead with settings:', isMobile ? 'MOBILE (30fps, 1x res, no transform)' : 'DESKTOP (60fps, hi-res)');
+
                     talkingHeadRef.current = new TalkingHead(avatarContainerRef.current, options);
+
+                    // Add WebGL context loss handlers for mobile stability
+                    const canvas = avatarContainerRef.current.querySelector('canvas');
+                    if (canvas) {
+                        canvas.addEventListener('webglcontextlost', (event) => {
+                            console.error('WebGL context lost - preventing default to allow recovery');
+                            event.preventDefault();
+                            setMessages(prev => [...prev, {
+                                type: 'system',
+                                content: '⚠ Avatar rendering paused (low memory). Refresh if needed.'
+                            }]);
+                        });
+
+                        canvas.addEventListener('webglcontextrestored', () => {
+                            console.log('WebGL context restored');
+                            setMessages(prev => [...prev, {
+                                type: 'system',
+                                content: '✓ Avatar rendering resumed.'
+                            }]);
+                        });
+                    }
+
                     setIsConnected(true);
                     console.log('TalkingHead initialized successfully');
 

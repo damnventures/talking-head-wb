@@ -567,7 +567,7 @@ label {
         height: 100%;
         min-height: 0;
         margin-bottom: 0;
-        transform: scale(1.5) translateY(-10px);
+        transform: none; /* Remove CSS transform - it interferes with WebGL */
         animation: none;
         opacity: 1; /* Override animation opacity for mobile */
     }
