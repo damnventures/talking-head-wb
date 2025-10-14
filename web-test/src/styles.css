@@ -578,12 +578,7 @@ label {
     }
 
     .avatar-controls {
-        position: absolute;
-        top: 20px; /* Move controls to top of screen */
-        left: 50%;
-        transform: translateX(-50%);
-        max-width: 90%;
-        z-index: 100;
+        display: none; /* Hide controls on mobile to avoid overlap with avatar */
     }
 
     /* Chat overlay - collapsed by default */
@@ -595,15 +590,18 @@ label {
         height: auto;
         z-index: 10;
         transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-        background: white;
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
-        transform: translateY(calc(100% - 90px)); /* Only show input box */
+        background: transparent; /* Transparent when collapsed */
+        border-radius: 0;
+        box-shadow: none; /* No shadow when collapsed */
+        transform: translateY(calc(100% - 80px)); /* Only show input box */
     }
 
     .chat-section.expanded {
         transform: translateY(0);
         height: 90vh;
+        background: white; /* White background when expanded */
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
     }
 
     /* Hide swipe handle on mobile - full screen swipe instead */
@@ -648,6 +646,8 @@ label {
 
     .chat-input {
         padding: 10px;
+        background: #f8f9fa; /* Same background as desktop */
+        border-top: 1px solid #e9ecef;
     }
 
     .message-input {
