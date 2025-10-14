@@ -50,6 +50,7 @@ function App() {
     const [craigStatus, setCraigStatus] = useState(''); // Loading status for Craig
     const [capsuleId, setCapsuleId] = useState('68c32cf3735fb4ac0ef3ccbf');
     const [showAvatarCreator, setShowAvatarCreator] = useState(false);
+    const [rpmToken, setRpmToken] = useState(''); // Anonymous RPM user token
     const chatBoxRef = useRef(null);
     const avatarContainerRef = useRef(null);
     const talkingHeadRef = useRef(null);
@@ -887,10 +888,48 @@ function App() {
         }
     };
 
+    // Get or create anonymous RPM user token
+    const getOrCreateRpmToken = async () => {
+        // Check localStorage first
+        const storedToken = localStorage.getItem('rpm_anon_token');
+        if (storedToken) {
+            console.log('Using stored RPM token');
+            return storedToken;
+        }
+
+        // Create new anonymous user
+        try {
+            const response = await fetch('/api/rpm-anonymous-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Created anonymous RPM user:', data.userId);
+                // Store token in localStorage (never expires)
+                localStorage.setItem('rpm_anon_token', data.token);
+                return data.token;
+            } else {
+                console.error('Failed to create anonymous RPM user');
+                return '';
+            }
+        } catch (error) {
+            console.error('Error creating anonymous RPM user:', error);
+            return '';
+        }
+    };
+
     const handleLoadAvatar = () => {
         if (avatarUrl) {
             loadAvatar(avatarUrl);
         }
+    };
+
+    const handleCreateAvatar = async () => {
+        const token = await getOrCreateRpmToken();
+        setRpmToken(token);
+        setShowAvatarCreator(true);
     };
 
     const handleKeyPress = (e) => {
@@ -936,7 +975,7 @@ function App() {
                     </button>
                     <button
                         className="create-avatar-btn"
-                        onClick={() => setShowAvatarCreator(true)}
+                        onClick={handleCreateAvatar}
                     >
                         Create New Avatar
                     </button>
@@ -947,7 +986,7 @@ function App() {
                         <div className="avatar-creator-content" onClick={(e) => e.stopPropagation()}>
                             <button className="close-modal-btn" onClick={() => setShowAvatarCreator(false)}>×</button>
                             <iframe
-                                src={`https://${window.CONFIG?.RPM_SUBDOMAIN || 'demo'}.readyplayer.me/avatar?frameApi&bodyType=halfbody&quickStart=false`}
+                                src={`https://${window.CONFIG?.RPM_SUBDOMAIN || 'demo'}.readyplayer.me/avatar?frameApi&bodyType=halfbody&quickStart=false${rpmToken ? `&token=${rpmToken}` : ''}`}
                                 className="avatar-creator-iframe"
                                 allow="camera *; microphone *; clipboard-write"
                             />
