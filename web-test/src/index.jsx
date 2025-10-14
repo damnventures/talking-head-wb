@@ -1018,7 +1018,12 @@ function App() {
 
     return (
         <div className="container">
-            <div className="avatar-section">
+            <div
+                className="avatar-section"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
                 <div className="avatar-container" ref={avatarContainerRef}>
                     {isLoading && <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#666'}}>Loading avatar...</div>}
                 </div>
@@ -1064,9 +1069,6 @@ function App() {
                     <div
                         className="mobile-chat-toggle"
                         onClick={() => setIsChatExpanded(!isChatExpanded)}
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
                     ></div>
                     <h1>
                         <span

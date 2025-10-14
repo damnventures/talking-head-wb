@@ -552,7 +552,7 @@ label {
         position: relative;
     }
 
-    /* Avatar takes full screen */
+    /* Avatar takes full screen - swipe area for chat expansion */
     .avatar-section {
         position: fixed;
         top: 0;
@@ -561,11 +561,12 @@ label {
         height: 100vh;
         padding: 0; /* Remove padding for full screen */
         z-index: 1;
+        touch-action: pan-y; /* Allow vertical swipe gestures */
     }
 
     .avatar-container {
         position: absolute;
-        top: 0;
+        top: -350px; /* Move avatar up to center it in first half of screen */
         left: 0;
         width: 100%;
         height: 100%;
