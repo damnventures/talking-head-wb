@@ -195,12 +195,23 @@ function App() {
         // Always add event listener for config-loaded
         window.addEventListener('config-loaded', handleConfigLoaded);
 
-        // Also check if config is already loaded (in case event fired before listener attached)
+        // Check if config is already loaded
         if (window.CONFIG) {
             console.log('Config already available, running tests immediately');
             handleConfigLoaded();
         } else {
             console.log('Waiting for config to load...');
+            // Fallback: poll for config with setTimeout (handles race condition)
+            const checkConfigInterval = setInterval(() => {
+                if (window.CONFIG) {
+                    console.log('Config detected via polling, running tests');
+                    clearInterval(checkConfigInterval);
+                    handleConfigLoaded();
+                }
+            }, 100);
+
+            // Clear interval after 5 seconds to prevent infinite polling
+            setTimeout(() => clearInterval(checkConfigInterval), 5000);
         }
 
         // Listen for Ready Player Me avatar creation events
