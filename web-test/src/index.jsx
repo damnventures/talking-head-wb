@@ -57,6 +57,27 @@ function App() {
     const talkingHeadRef = useRef(null);
     const initializationRef = useRef(false);
     const currentTTSAbortController = useRef(null); // Track current TTS session for interruption
+    const audioContextUnlocked = useRef(false); // Track if AudioContext has been unlocked
+
+    // Unlock AudioContext for Safari (must be called from user interaction)
+    const unlockAudioContext = () => {
+        if (audioContextUnlocked.current || !talkingHeadRef.current?.audioCtx) return;
+
+        const audioCtx = talkingHeadRef.current.audioCtx;
+        console.log('[Safari Audio] Attempting to unlock AudioContext, current state:', audioCtx.state);
+
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => {
+                console.log('[Safari Audio] ✓ AudioContext unlocked, state:', audioCtx.state);
+                audioContextUnlocked.current = true;
+            }).catch(err => {
+                console.error('[Safari Audio] Failed to unlock AudioContext:', err);
+            });
+        } else {
+            console.log('[Safari Audio] AudioContext already running');
+            audioContextUnlocked.current = true;
+        }
+    };
 
     // Initialize TalkingHead system
     useEffect(() => {
@@ -366,6 +387,9 @@ function App() {
 
     const handleSendMessage = async () => {
         if (currentMessage.trim() === '') return;
+
+        // Unlock AudioContext on first user interaction (Safari requirement)
+        unlockAudioContext();
 
         const userMessage = currentMessage.trim();
 
@@ -717,10 +741,17 @@ function App() {
                     }
                     const rawAudioBuffer = bytes.buffer;
 
-                    // Resume AudioContext if suspended
+                    // Resume AudioContext if suspended (Safari)
                     if (talkingHeadRef.current.audioCtx?.state === 'suspended') {
+                        console.log('[Safari Audio] Resuming AudioContext before playback...');
                         await talkingHeadRef.current.audioCtx.resume();
+                        console.log('[Safari Audio] AudioContext state after resume:', talkingHeadRef.current.audioCtx.state);
                     }
+
+                    // Debug: Log audio routing info (Safari mobile)
+                    console.log('[Safari Audio] Playing audio - check device volume and silent switch');
+                    console.log('[Safari Audio] AudioContext state:', talkingHeadRef.current.audioCtx.state);
+                    console.log('[Safari Audio] AudioContext sampleRate:', talkingHeadRef.current.audioCtx.sampleRate);
 
                     // Decode and play audio with lip-sync
                     const decodedAudioBuffer = await talkingHeadRef.current.audioCtx.decodeAudioData(rawAudioBuffer);
