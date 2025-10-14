@@ -83,9 +83,9 @@ function App() {
                         modelMovementFactor: 1,
                         modelRoot: "Hips", // Ready Player Me avatars use "Hips" as root
                         cameraView: 'upper', // Show upper body like the working example
-                        cameraDistance: isMobile ? 0.5 : 0.8, // Closer camera on mobile for larger avatar
+                        cameraDistance: isMobile ? 0.35 : 0.8, // Much closer camera on mobile for larger avatar
                         cameraX: 0,
-                        cameraY: isMobile ? 0 : 0.1, // Centered on mobile
+                        cameraY: isMobile ? -0.05 : 0.1, // Slightly lower on mobile for better framing
                         cameraRotateEnable: !isMobile, // Disable camera controls on mobile
                         cameraPanEnable: !isMobile,
                         cameraZoomEnable: !isMobile,
@@ -102,7 +102,7 @@ function App() {
                         lipsyncLang: 'en'
                     };
 
-                    console.log('Initializing TalkingHead with settings:', isMobile ? 'MOBILE (30fps, 1x res, no transform)' : 'DESKTOP (60fps, hi-res)');
+                    console.log('Initializing TalkingHead with settings:', isMobile ? 'MOBILE (30fps, 1x res, camera: 0.35)' : 'DESKTOP (60fps, hi-res)');
 
                     talkingHeadRef.current = new TalkingHead(avatarContainerRef.current, options);
 

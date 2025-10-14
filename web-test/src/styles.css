@@ -559,11 +559,15 @@ label {
         left: 0;
         width: 100vw;
         height: 100vh;
-        padding: 10px;
+        padding: 0; /* Remove padding for full screen */
         z-index: 1;
     }
 
     .avatar-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
         height: 100%;
         min-height: 0;
         margin-bottom: 0;
@@ -574,7 +578,7 @@ label {
 
     .avatar-controls {
         position: absolute;
-        bottom: 80px;
+        bottom: 100px;
         left: 50%;
         transform: translateX(-50%);
         max-width: 90%;
@@ -593,7 +597,7 @@ label {
         background: white;
         border-radius: 20px 20px 0 0;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
-        transform: translateY(calc(100% - 70px));
+        transform: translateY(calc(100% - 90px)); /* Only show input box */
     }
 
     .chat-section.expanded {
@@ -608,27 +612,46 @@ label {
         height: 5px;
         background: #ccc;
         border-radius: 3px;
-        margin: 10px auto 5px;
+        margin: 10px auto;
         cursor: pointer;
         touch-action: pan-y; /* Allow vertical swipe, prevent other gestures */
         user-select: none; /* Prevent text selection during swipe */
         -webkit-user-select: none;
+        padding: 15px; /* Larger touch area */
+        margin: -5px auto; /* Compensate for padding */
+    }
+
+    /* Hide header and messages when collapsed */
+    .chat-section:not(.expanded) .chat-header h1,
+    .chat-section:not(.expanded) .chat-header p,
+    .chat-section:not(.expanded) .model-switcher,
+    .chat-section:not(.expanded) .capsule-input,
+    .chat-section:not(.expanded) .chat-messages {
+        display: none;
     }
 
     .chat-header {
-        padding: 10px 15px 5px;
+        padding: 0;
+        background: transparent;
+        border: none;
     }
 
-    .chat-header h1 {
+    .chat-section.expanded .chat-header {
+        padding: 10px 15px 5px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .chat-section.expanded .chat-header h1 {
         font-size: 18px;
         margin-bottom: 2px;
     }
 
-    .chat-header p {
+    .chat-section.expanded .chat-header p {
         font-size: 12px;
     }
 
-    .chat-messages {
+    .chat-section.expanded .chat-messages {
         padding: 10px;
         max-height: calc(90vh - 180px);
     }
