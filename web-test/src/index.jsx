@@ -178,19 +178,29 @@ function App() {
         };
 
         // Wait for config to load before running tests
+        let testsExecuted = false;
         const handleConfigLoaded = () => {
+            if (testsExecuted) {
+                console.log('Tests already executed, skipping...');
+                return;
+            }
+            testsExecuted = true;
+            console.log('Config loaded, running initialization tests...');
             testConnection();
             testElevenLabs();
             initWeave();
             initInfrastructure();
         };
 
-        // Check if config is already loaded
+        // Always add event listener for config-loaded
+        window.addEventListener('config-loaded', handleConfigLoaded);
+
+        // Also check if config is already loaded (in case event fired before listener attached)
         if (window.CONFIG) {
+            console.log('Config already available, running tests immediately');
             handleConfigLoaded();
         } else {
-            // Wait for config-loaded event
-            window.addEventListener('config-loaded', handleConfigLoaded);
+            console.log('Waiting for config to load...');
         }
 
         // Listen for Ready Player Me avatar creation events
