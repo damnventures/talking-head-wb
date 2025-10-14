@@ -566,7 +566,7 @@ label {
 
     .avatar-container {
         position: absolute;
-        top: -350px; /* Move avatar up to center it in first half of screen */
+        top: -250px; /* Move avatar up to center it in first half of screen */
         left: 0;
         width: 100%;
         height: 100%;
@@ -579,7 +579,7 @@ label {
 
     .avatar-controls {
         position: absolute;
-        bottom: 100px;
+        top: 20px; /* Move controls to top of screen */
         left: 50%;
         transform: translateX(-50%);
         max-width: 90%;
@@ -606,20 +606,9 @@ label {
         height: 90vh;
     }
 
-    /* Swipe handle */
+    /* Hide swipe handle on mobile - full screen swipe instead */
     .mobile-chat-toggle {
-        display: block;
-        width: 60px;
-        height: 5px;
-        background: #ccc;
-        border-radius: 3px;
-        margin: 10px auto;
-        cursor: pointer;
-        touch-action: pan-y; /* Allow vertical swipe, prevent other gestures */
-        user-select: none; /* Prevent text selection during swipe */
-        -webkit-user-select: none;
-        padding: 15px; /* Larger touch area */
-        margin: -5px auto; /* Compensate for padding */
+        display: none;
     }
 
     /* Hide header and messages when collapsed */

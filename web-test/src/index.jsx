@@ -1064,7 +1064,12 @@ function App() {
                 )}
             </div>
 
-            <div className={`chat-section ${isChatExpanded ? 'expanded' : ''}`}>
+            <div
+                className={`chat-section ${isChatExpanded ? 'expanded' : ''}`}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
                 <div className="chat-header">
                     <div
                         className="mobile-chat-toggle"
