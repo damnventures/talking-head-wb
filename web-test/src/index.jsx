@@ -51,6 +51,7 @@ function App() {
     const [capsuleId, setCapsuleId] = useState('68c32cf3735fb4ac0ef3ccbf');
     const [showAvatarCreator, setShowAvatarCreator] = useState(false);
     const [rpmToken, setRpmToken] = useState(''); // Anonymous RPM user token
+    const [isChatExpanded, setIsChatExpanded] = useState(false); // Mobile chat expanded state
     const chatBoxRef = useRef(null);
     const avatarContainerRef = useRef(null);
     const talkingHeadRef = useRef(null);
@@ -938,6 +939,33 @@ function App() {
         }
     };
 
+    // Mobile swipe handlers
+    const touchStartY = useRef(0);
+    const touchEndY = useRef(0);
+
+    const handleTouchStart = (e) => {
+        touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+        touchEndY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = () => {
+        const swipeDistance = touchStartY.current - touchEndY.current;
+        const minSwipeDistance = 50; // Minimum swipe distance in pixels
+
+        if (Math.abs(swipeDistance) > minSwipeDistance) {
+            if (swipeDistance > 0) {
+                // Swipe up - expand chat
+                setIsChatExpanded(true);
+            } else {
+                // Swipe down - collapse chat
+                setIsChatExpanded(false);
+            }
+        }
+    };
+
     // Log to Weave backend
     const logToWeave = async (prompt, response, model, hasContext, scores) => {
         try {
@@ -995,8 +1023,17 @@ function App() {
                 )}
             </div>
 
-            <div className="chat-section">
-                <div className="chat-header">
+            <div className={`chat-section ${isChatExpanded ? 'expanded' : ''}`}>
+                <div
+                    className="chat-header"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <div
+                        className="mobile-chat-toggle"
+                        onClick={() => setIsChatExpanded(!isChatExpanded)}
+                    ></div>
                     <h1>
                         <span
                             className={`status-indicator ${isConnected ? 'connected' : ''}`}
