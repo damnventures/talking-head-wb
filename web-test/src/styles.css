@@ -562,17 +562,45 @@ label {
         padding: 0; /* Remove padding for full screen */
         z-index: 1;
         touch-action: pan-y; /* Allow vertical swipe gestures */
+        background: #333; /* Dark background */
+    }
+
+    /* Mobile Settings Button - Top Right */
+    .mobile-settings-btn {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 100;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s;
+    }
+
+    .mobile-settings-btn:active {
+        transform: scale(0.95);
+    }
+
+    .mobile-settings-btn svg {
+        color: #333;
     }
 
     .avatar-container {
         position: absolute;
-        top: -250px; /* Move avatar up to center it in first half of screen */
+        top: -200px; /* Move down 50px (was -250px) and make larger */
         left: 0;
         width: 100%;
         height: 100%;
         min-height: 0;
         margin-bottom: 0;
-        transform: none; /* Remove CSS transform - it interferes with WebGL */
+        transform: scale(1.2); /* Make avatar 20% larger */
         animation: none;
         opacity: 1; /* Override animation opacity for mobile */
     }
@@ -610,18 +638,9 @@ label {
         display: none;
     }
 
-    /* Mobile avatar controls - only show when expanded */
+    /* Hide old mobile-avatar-controls (now in settings modal) */
     .mobile-avatar-controls {
-        display: none;
-    }
-
-    .chat-section.expanded .mobile-avatar-controls {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-bottom: 15px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #e9ecef;
+        display: none !important;
     }
 
     /* Hide header and messages when collapsed */
@@ -688,5 +707,148 @@ label {
     .model-switcher {
         flex-direction: column;
         gap: 8px;
+    }
+
+    /* Mobile Settings Modal */
+    .mobile-settings-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .mobile-settings-content {
+        width: 100%;
+        max-height: 85vh;
+        background: white;
+        border-radius: 20px 20px 0 0;
+        overflow-y: auto;
+        animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+
+    .settings-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px;
+        border-bottom: 1px solid #e9ecef;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+    }
+
+    .settings-header h2 {
+        font-size: 22px;
+        color: #333;
+        margin: 0;
+    }
+
+    .settings-header .close-modal-btn {
+        position: static;
+        margin: 0;
+    }
+
+    .settings-body {
+        padding: 20px;
+    }
+
+    .settings-section {
+        margin-bottom: 30px;
+    }
+
+    .settings-section h3 {
+        font-size: 16px;
+        color: #333;
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+
+    .settings-section input[type="text"] {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .settings-section button {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    /* Mobile Model Switcher */
+    .model-switcher-mobile {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .model-switcher-mobile label {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 15px;
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .model-switcher-mobile label.active {
+        background: #007bff;
+        border-color: #007bff;
+    }
+
+    .model-switcher-mobile label.active span {
+        color: white;
+        font-weight: 600;
+    }
+
+    .model-switcher-mobile input[type="radio"] {
+        width: 20px;
+        height: 20px;
+        margin: 0;
+    }
+
+    .model-switcher-mobile span {
+        flex: 1;
+        font-size: 16px;
+        color: #333;
+    }
+
+    .capsule-input-mobile {
+        margin-top: 15px;
+        padding: 15px;
+        background: #fff3cd;
+        border-radius: 10px;
+    }
+
+    .capsule-input-mobile label {
+        display: block;
+        margin-bottom: 8px;
+        color: #856404;
+        font-weight: 600;
+    }
+
+    .capsule-input-mobile small {
+        display: block;
+        margin-top: 8px;
+        color: #856404;
+        font-size: 12px;
     }
 }

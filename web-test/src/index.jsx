@@ -52,6 +52,7 @@ function App() {
     const [showAvatarCreator, setShowAvatarCreator] = useState(false);
     const [rpmToken, setRpmToken] = useState(''); // Anonymous RPM user token
     const [isChatExpanded, setIsChatExpanded] = useState(false); // Mobile chat expanded state
+    const [showMobileSettings, setShowMobileSettings] = useState(false); // Mobile settings modal
     const chatBoxRef = useRef(null);
     const avatarContainerRef = useRef(null);
     const talkingHeadRef = useRef(null);
@@ -1055,6 +1056,14 @@ function App() {
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
             >
+                {/* Mobile settings button - top right */}
+                <button className="mobile-settings-btn" onClick={() => setShowMobileSettings(true)}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6m0-18a2 2 0 012 2v2a2 2 0 002 2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 00-2 2v2a2 2 0 01-2 2v0a2 2 0 01-2-2v-2a2 2 0 00-2-2H6a2 2 0 01-2-2v0a2 2 0 012-2h2a2 2 0 002-2V3a2 2 0 012-2v0z"></path>
+                    </svg>
+                </button>
+
                 <div className="avatar-container" ref={avatarContainerRef}>
                     {isLoading && <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#666'}}>Loading avatar...</div>}
                 </div>
@@ -1090,6 +1099,91 @@ function App() {
                                 className="avatar-creator-iframe"
                                 allow="camera *; microphone *; clipboard-write"
                             />
+                        </div>
+                    </div>
+                )}
+
+                {/* Mobile settings modal */}
+                {showMobileSettings && (
+                    <div className="mobile-settings-modal" onClick={() => setShowMobileSettings(false)}>
+                        <div className="mobile-settings-content" onClick={(e) => e.stopPropagation()}>
+                            <div className="settings-header">
+                                <h2>Settings</h2>
+                                <button className="close-modal-btn" onClick={() => setShowMobileSettings(false)}>×</button>
+                            </div>
+
+                            <div className="settings-body">
+                                {/* Model Selection */}
+                                <div className="settings-section">
+                                    <h3>AI Model</h3>
+                                    <div className="model-switcher-mobile">
+                                        <label className={aiModel === 'openai' ? 'active' : ''}>
+                                            <input
+                                                type="radio"
+                                                value="openai"
+                                                checked={aiModel === 'openai'}
+                                                onChange={(e) => setAiModel(e.target.value)}
+                                            />
+                                            <span>OpenAI GPT-4o</span>
+                                        </label>
+                                        <label className={aiModel === 'craig' ? 'active' : ''}>
+                                            <input
+                                                type="radio"
+                                                value="craig"
+                                                checked={aiModel === 'craig'}
+                                                onChange={(e) => setAiModel(e.target.value)}
+                                            />
+                                            <span>Craig (Context-Aware)</span>
+                                        </label>
+                                    </div>
+
+                                    {aiModel === 'craig' && (
+                                        <div className="capsule-input-mobile">
+                                            <label htmlFor="capsule-id-mobile">Capsule ID:</label>
+                                            <input
+                                                id="capsule-id-mobile"
+                                                type="text"
+                                                className="capsule-id-input"
+                                                value={capsuleId}
+                                                onChange={(e) => setCapsuleId(e.target.value)}
+                                                placeholder="Enter your capsule ID"
+                                            />
+                                            <small>Required for Craig mode</small>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Avatar Controls */}
+                                <div className="settings-section">
+                                    <h3>Avatar</h3>
+                                    <input
+                                        type="text"
+                                        className="avatar-url-input"
+                                        value={avatarUrl}
+                                        onChange={(e) => setAvatarUrl(e.target.value)}
+                                        placeholder="Enter avatar URL"
+                                    />
+                                    <button
+                                        className="load-avatar-btn"
+                                        onClick={() => {
+                                            handleLoadAvatar();
+                                            setShowMobileSettings(false);
+                                        }}
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? 'Loading...' : 'Load Avatar'}
+                                    </button>
+                                    <button
+                                        className="create-avatar-btn"
+                                        onClick={() => {
+                                            handleCreateAvatar();
+                                            setShowMobileSettings(false);
+                                        }}
+                                    >
+                                        Create New Avatar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
