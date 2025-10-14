@@ -562,7 +562,7 @@ label {
         padding: 0; /* Remove padding for full screen */
         z-index: 1;
         touch-action: pan-y; /* Allow vertical swipe gestures */
-        background: #333; /* Dark background */
+        background: #1a1a1a; /* Darker background (not pitch black) */
     }
 
     /* Mobile Settings Button - Top Right */
@@ -692,6 +692,11 @@ label {
     .send-btn {
         padding: 10px 20px;
         font-size: 14px;
+        background: #007bff; /* Blue send button */
+    }
+
+    .send-btn:hover:not(:disabled) {
+        background: #0056b3;
     }
 
     .video-grid {
@@ -709,7 +714,7 @@ label {
         gap: 8px;
     }
 
-    /* Mobile Settings Modal */
+    /* Mobile Settings Modal - overlaps chat */
     .mobile-settings-modal {
         position: fixed;
         top: 0;
@@ -720,7 +725,7 @@ label {
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        z-index: 2000;
+        z-index: 1000; /* Above chat section (z-index: 10) */
     }
 
     .mobile-settings-content {
