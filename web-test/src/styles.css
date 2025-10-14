@@ -537,6 +537,13 @@ label {
     display: none;
 }
 
+/* Hide mobile-only elements on desktop */
+.mobile-settings-btn,
+.mobile-avatar-controls,
+.mobile-settings-modal {
+    display: none;
+}
+
 @media (max-width: 768px) {
     body {
         overflow: hidden;
@@ -569,6 +576,7 @@ label {
 
     /* Mobile Settings Button - Top Right (Three Dots) */
     .mobile-settings-btn {
+        display: flex !important; /* Override desktop hide */
         position: fixed;
         top: 20px;
         right: 20px;
@@ -576,7 +584,6 @@ label {
         height: 40px;
         background: transparent;
         border: none;
-        display: flex;
         flex-direction: row;
         align-items: center;
         justify-content: center;
@@ -742,13 +749,13 @@ label {
 
     /* Mobile Settings Modal - overlaps chat */
     .mobile-settings-modal {
+        display: flex !important; /* Override desktop hide - shown when React state is true */
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
         background: rgba(0, 0, 0, 0.8);
-        display: flex;
         align-items: flex-end;
         justify-content: center;
         z-index: 9999; /* Very high to be above chat section */
