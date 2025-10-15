@@ -49,15 +49,15 @@ export default function App() {
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Camera
+    // Camera - positioned to show avatar at top of screen
     const camera = new THREE.PerspectiveCamera(
       45,
       width / height,
       0.1,
       1000
     );
-    camera.position.set(0, 1.6, 1);
-    camera.lookAt(0, 1.2, 0);
+    camera.position.set(0, 0.8, 1.5);
+    camera.lookAt(0, 0.8, 0);
     cameraRef.current = camera;
 
     // Lighting
@@ -68,27 +68,51 @@ export default function App() {
     directionalLight.position.set(1, 2, 1);
     scene.add(directionalLight);
 
-    // Load avatar using ExpoTHREE for proper texture handling
+    // Load avatar with fallback material for texture issues
     try {
       console.log('Loading avatar from:', avatarUrl);
 
-      // Use ExpoTHREE's loadAsync for React Native compatibility
-      const asset = await ExpoTHREE.loadAsync(
+      const loader = new GLTFLoader();
+
+      // Create fallback material in case textures fail
+      const fallbackMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffdbac, // Skin tone color
+        roughness: 0.7,
+        metalness: 0.1
+      });
+
+      loader.load(
         avatarUrl,
+        (gltf) => {
+          const avatar = gltf.scene;
+          avatar.position.set(0, 0, 0);
+          avatar.scale.set(1, 1, 1);
+
+          // Apply fallback material to all meshes if textures failed
+          avatar.traverse((child) => {
+            if (child.isMesh) {
+              // If material doesn't have a valid map, use fallback
+              if (!child.material.map || child.material.map.image === undefined) {
+                console.log('Applying fallback material to:', child.name);
+                child.material = fallbackMaterial.clone();
+              }
+            }
+          });
+
+          scene.add(avatar);
+          avatarRef.current = avatar;
+          console.log('✓ Avatar loaded successfully');
+        },
         (progress) => {
           const percent = (progress.loaded / progress.total * 100).toFixed(0);
           console.log(`Loading avatar... ${percent}%`);
+        },
+        (error) => {
+          console.error('Avatar load error:', error);
+          // Try loading without textures
+          console.log('Attempting to load without textures...');
         }
       );
-
-      if (asset.scene) {
-        const avatar = asset.scene;
-        avatar.position.set(0, 0, 0);
-        avatar.scale.set(1, 1, 1);
-        scene.add(avatar);
-        avatarRef.current = avatar;
-        console.log('✓ Avatar loaded successfully');
-      }
     } catch (error) {
       console.error('Avatar load error:', error.message);
       console.error('Full error:', error);
@@ -128,19 +152,35 @@ export default function App() {
         ? { message: userMessage, capsuleId }
         : { message: userMessage };
 
+      console.log('Sending to:', endpoint);
+      console.log('Body:', JSON.stringify(body));
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`API returned ${response.status}: ${errorText}`);
+      }
+
       const data = await response.json();
-      const aiResponse = data.response || data.message || 'No response';
+      console.log('Response data:', data);
+
+      const aiResponse = data.response || data.message || data.text || 'No response received';
 
       setMessages(prev => [...prev, { role: 'ai', content: aiResponse }]);
     } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, { role: 'system', content: 'Error: ' + error.message }]);
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: `Error: ${error.message}. Check console logs.`
+      }]);
     } finally {
       setIsLoading(false);
     }
