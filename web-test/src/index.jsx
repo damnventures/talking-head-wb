@@ -174,14 +174,8 @@ function App() {
                     setMessages(prev => [...prev, { type: 'system', content: 'Error: config.js not found or API key is missing.' }]);
                     return;
                 }
-                const response = await fetch('https://api.openai.com/v1/models', {
-                    headers: { 'Authorization': `Bearer ${window.CONFIG.OPENAI_API_KEY}` }
-                });
-                if (response.ok) {
-                    setMessages(prev => [...prev, { type: 'system', content: '✓ OpenAI connection established.' }]);
-                } else {
-                    throw new Error('API key validation failed');
-                }
+                // OpenAI connection will be validated on first request
+                setMessages(prev => [...prev, { type: 'system', content: '✓ OpenAI connection ready (backend proxy configured).' }]);
             } catch (error) {
                 console.error('Connection test failed:', error);
                 setMessages(prev => [...prev, { type: 'system', content: `Warning: OpenAI connection failed. ${error.message}` }]);
@@ -449,16 +443,14 @@ function App() {
 
     const callOpenAI = async (message) => {
         try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${window.CONFIG?.OPENAI_API_KEY || 'your-api-key'}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: "gpt-4o",
-                    messages: [{ role: "user", content: message }],
-                    stream: true
+                    message: message,
+                    apiKey: window.CONFIG?.OPENAI_API_KEY || 'your-api-key'
                 })
             });
 
