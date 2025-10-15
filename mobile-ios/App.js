@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 // Configuration - points to Vercel API
-const API_BASE_URL = 'https://your-vercel-url.vercel.app'; // TODO: Update with actual Vercel URL
+const API_BASE_URL = 'https://eval.shrinked.ai';
 
 export default function App() {
   const [messages, setMessages] = useState([
