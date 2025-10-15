@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile-ios",
-    "slug": "mobile-ios",
+    "name": "talking-head",
+    "slug": "talking-head",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,6 +24,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a86b2be4-7b26-41fb-84df-467b202a495d"
+      }
+    },
+    "owner": "cherepukhin"
   }
 }
