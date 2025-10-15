@@ -14,6 +14,7 @@ import { GLView } from 'expo-gl';
 import { Renderer } from 'expo-three';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import ExpoTHREE from 'expo-three';
 
 // Configuration - points to Vercel API
 const API_BASE_URL = 'https://eval.shrinked.ai';
@@ -67,28 +68,30 @@ export default function App() {
     directionalLight.position.set(1, 2, 1);
     scene.add(directionalLight);
 
-    // Load avatar
+    // Load avatar using ExpoTHREE for proper texture handling
     try {
-      const loader = new GLTFLoader();
-      loader.load(
+      console.log('Loading avatar from:', avatarUrl);
+
+      // Use ExpoTHREE's loadAsync for React Native compatibility
+      const asset = await ExpoTHREE.loadAsync(
         avatarUrl,
-        (gltf) => {
-          const avatar = gltf.scene;
-          avatar.position.set(0, 0, 0);
-          avatar.scale.set(1, 1, 1);
-          scene.add(avatar);
-          avatarRef.current = avatar;
-          console.log('✓ Avatar loaded successfully');
-        },
         (progress) => {
-          console.log('Loading avatar...', (progress.loaded / progress.total * 100).toFixed(0) + '%');
-        },
-        (error) => {
-          console.error('Error loading avatar:', error);
+          const percent = (progress.loaded / progress.total * 100).toFixed(0);
+          console.log(`Loading avatar... ${percent}%`);
         }
       );
+
+      if (asset.scene) {
+        const avatar = asset.scene;
+        avatar.position.set(0, 0, 0);
+        avatar.scale.set(1, 1, 1);
+        scene.add(avatar);
+        avatarRef.current = avatar;
+        console.log('✓ Avatar loaded successfully');
+      }
     } catch (error) {
-      console.error('Avatar load error:', error);
+      console.error('Avatar load error:', error.message);
+      console.error('Full error:', error);
     }
 
     // Animation loop
