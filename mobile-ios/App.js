@@ -26,7 +26,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [aiModel, setAiModel] = useState('openai');
   const [capsuleId, setCapsuleId] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/6790ea53904cea3d6a69c07c.glb');
+  const [avatarUrl, setAvatarUrl] = useState('https://models.readyplayer.me/68ea9e6ec138a9c842570bf9.glb?morphTargets=ARKit,Oculus+Visemes&useHands=false&lod=0&textureSizeLimit=1024&textureFormat=png');
 
   const rendererRef = useRef(null);
   const sceneRef = useRef(null);
